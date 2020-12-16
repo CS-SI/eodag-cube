@@ -9,20 +9,30 @@ setup(
     author_email="support@geostorm.eu",
     license="MIT",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
-    install_requires=[],
+    install_requires=[
+        "eodag >= 2.0b2",
+        "numpy",
+        "rasterio",
+        "protobuf",
+        "grpcio",
+        "xarray",
+    ],
     extras_require={
         "dev": [
-            "black",
             "flake8",
             "isort",
             "pre-commit",
             "pytest==5.0.1",  # pytest pined to v5.0.1 to avoid issue when run from VSCode
             "pytest-cov",
             "tox",
+            "nose",
+            "faker",
+            "coverage",
+            "moto",
+            "twine",
+            "wheel",
         ]
     },
     zip_safe=False,
-    entry_points={
-        "console_scripts": ["eodag_cube=eodag_cube.eodag_cube:main"]
-    },
+    entry_points={"console_scripts": ["eodag_cube=eodag_cube.eodag_cube:main"]},
 )

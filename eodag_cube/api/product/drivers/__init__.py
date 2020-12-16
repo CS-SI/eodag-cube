@@ -15,5 +15,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-__author__ = "CS Group"
-__version__ = "0.1.0"
+"""EODAG drivers package"""
+from eodag.api.product.drivers.base import NoDriver  # noqa
+from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
+
+DRIVERS = {"S2_MSI_L1C": Sentinel2L1C()}

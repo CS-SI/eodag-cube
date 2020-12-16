@@ -15,5 +15,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-__author__ = "CS Group"
-__version__ = "0.1.0"
+"""Miscellaneous utilities to be used throughout eodag.
+
+Everything that does not fit into one of the specialised categories of utilities in
+this package should go here
+"""
+from rasterio.crs import CRS
+
+DEFAULT_PROJ = CRS.from_epsg(4326)
