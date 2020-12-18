@@ -1,5 +1,6 @@
 # eodag-cube
 
+This project is the data-access part of [eodag](https://github.com/CS-SI/eodag)
 ## Setup
 
 ```sh
@@ -19,15 +20,19 @@ Update `install_requires` section of `setup.py` file to add a dependency.
 
 Then run `pip install --upgrade .`
 
-## VSCode Python environment initialisation
+## LICENSE
 
-* Select previously created Python virtual environment as Python interpreter: `CTRL+SHIFT+p` and type "interpreter"
-* Configure Python test runner: `CTRL+SHIFT+p` then type "configure test" and choose Pytest
-* Formatting with black: `CTRL+SHIFT+i` then choose "black" button into VSCode popup
-* Linting with flake8: `CTRL+SHIFT+i` then choose "select linter" then select flake8
+EODAG is licensed under Apache License v2.0.
+See LICENSE file for details.
 
-After that, Python tests tab appears and you can run tests.
 
-## Credits
+## AUTHORS
 
-This package was created with Cookiecutter and the [geostorm/cookiecutter-python](https://bitbucket.org/geostorm/cookiecutter-python) project template.
+EODAG is developed by `CS GROUP - France <https://www.c-s.fr>`_.
+
+
+## CREDITS
+
+EODAG is built on top of amazingly useful open source projects. See NOTICE file for details about those projects and
+their licenses.
+Thank you to all the authors of these projects !
