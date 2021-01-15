@@ -1,4 +1,4 @@
-image: python:3.5-slim-buster
+image: python:3.6
 
 stages:
   - build
@@ -11,7 +11,7 @@ lint:
     - python -m pip install flake8
     - flake8 --max-line-length=120 .
 
-py35:unit-tests:
+py36:unit-tests:
   stage: test
   script:
     - python -m pip install -r requirements-dev.txt
