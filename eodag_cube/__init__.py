@@ -15,5 +15,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-__author__ = "CS Group"
+__title__ = "eodag-cube"
+__description__ = "Data access for Earth Observation Data Access Gateway"
 __version__ = "0.1.0"
+__author__ = "CS GROUP - France (CSSI)"
+__author_email__ = "admin@geostorm.eu"
+__url__ = "https://github.com/CS-SI/eodag-cube"
+__license__ = "Apache 2.0"
+__copyright__ = "Copyright 2020, CS GROUP - France, http://www.c-s.fr"
