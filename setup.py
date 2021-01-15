@@ -1,14 +1,28 @@
+import os
+
 from setuptools import find_packages, setup
 
+BASEDIR = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+
+metadata = {}
+with open(os.path.join(BASEDIR, "eodag_cube", "__init__.py"), "r") as f:
+    exec(f.read(), metadata)
+
+with open(os.path.join(BASEDIR, "README.rst"), "r") as f:
+    readme = f.read()
+
 setup(
-    name="eodag_cube",
-    version="0.1.0",
-    description="This is eodag-cube project",
-    url="https://github.com/CS-SI/eodag-cube",
-    author="CS Group",
-    author_email="support@geostorm.eu",
-    license="MIT",
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    name=metadata["__title__"],
+    version=metadata["__version__"],
+    description=metadata["__description__"],
+    long_description=readme,
+    author=metadata["__author__"],
+    author_email=metadata["__author_email__"],
+    url=metadata["__url__"],
+    license=metadata["__license__"],
+    packages=find_packages(exclude=("*.tests", "*.tests.*", "tests.*", "tests")),
+    package_data={"": ["LICENSE"]},
+    include_package_data=True,
     install_requires=[
         "eodag >= 2.0b2",
         "numpy",
