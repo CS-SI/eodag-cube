@@ -23,6 +23,7 @@ import boto3
 import rasterio
 
 from eodag.api.product.drivers.base import DatasetDriver
+from eodag.utils import uri_to_path
 from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressScheme
 
 
@@ -58,7 +59,7 @@ class Sentinel2L1C(DatasetDriver):
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
             top_level_mtd = os.path.join(
-                re.sub(r"file://", "", eo_product.location), "MTD_MSIL1C.xml"
+                uri_to_path(eo_product.location), "MTD_MSIL1C.xml"
             )
             # Ignore the NotGeoreferencedWarning thrown by rasterio
             with warnings.catch_warnings():

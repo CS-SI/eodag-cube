@@ -33,6 +33,7 @@ from tests.context import (
     Sentinel2L1C,
     UnsupportedDatasetAddressScheme,
     config,
+    path_to_uri,
 )
 from tests.utils import mock
 
@@ -93,7 +94,14 @@ class TestEOProduct(EODagTestCase):
                 ),
             )
         )
-        mock_downloader.download.return_value = self.local_product_as_archive_path
+
+        def mock_download(*args, **kwargs):
+            eo_product = args[0]
+            fs_path = self.local_product_as_archive_path
+            eo_product.location = path_to_uri(fs_path)
+            return fs_path
+
+        mock_downloader.download.side_effect = mock_download
         # mock_downloader.config = {'extract': False, 'archive_depth': 1}
         mock_authenticator = mock.MagicMock(
             spec_set=Authentication(
