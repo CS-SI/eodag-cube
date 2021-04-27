@@ -57,6 +57,16 @@ Example usage for interacting with the api in your Python code:
         [1732, 2219, 2630, ..., 1670, 1659, 1664],
         [1548, 1832, 2134, ..., 1722, 1732, 1718]], dtype=uint16)
 
+Contribute
+==========
+
+If you intend to contribute to eodag-sentinelsat source code::
+
+    git clone https://github.com/CS-SI/eodag-cube.git
+    cd eodag-cube
+    python -m pip install -e .[dev]
+    pre-commit install
+    tox
 
 LICENSE
 =======
