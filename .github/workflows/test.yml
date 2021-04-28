@@ -52,10 +52,12 @@ jobs:
       with:
         path: ${{ steps.pip-cache.outputs.dir }}
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ steps.get-week.outputs.week }}-${{ hashFiles('setup.py') }}
-    - name: Install tox and tox-gh-actions
-      run: python -m pip install tox tox-gh-actions
-    - name: Test with tox
-      run: tox
+    - name: Install from eodag develop branch
+      run: pip install git+https://github.com/CS-SI/eodag.git@develop
+    - name: Install other deps
+      run: python -m pip install .[dev]
+    - name: Test with pytest
+      run: pytest --show-capture=no --cov --cov-fail-under=50
 
   check-pypi:
     name: Long description check for PyPI
