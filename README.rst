@@ -31,7 +31,7 @@ Usage - Python API
 Example usage for interacting with the api in your Python code:
 
 .. code-block:: python
-    
+
     from eodag import EODataAccessGateway
     from rasterio.crs import CRS
 
@@ -41,9 +41,9 @@ Example usage for interacting with the api in your Python code:
     start, end = '2020-06-04', '2020-06-05'
     search_results, _ = dag.search(productType=product_type, geom=footprint, start=start, end=end)
     data = search_results[0].get_data(
-        crs=CRS.from_epsg(4326), 
-        resolution=0.0006, 
-        band="B01", 
+        crs=CRS.from_epsg(4326),
+        resolution=0.0006,
+        band="B01",
         extent=footprint
     )
     print(data)
@@ -79,4 +79,3 @@ AUTHORS
 =======
 
 EODAG is developed by `CS GROUP - France <https://www.c-s.fr>`_.
-
