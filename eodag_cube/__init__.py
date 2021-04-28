@@ -15,6 +15,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""EODAG-cube: Data access for EODAG."""
+
 __title__ = "eodag-cube"
 __description__ = "Data access for EODAG"
 __version__ = "0.1.1"
