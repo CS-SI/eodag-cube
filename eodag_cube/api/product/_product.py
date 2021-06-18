@@ -105,7 +105,7 @@ class EOProduct(EOProduct_core):
         min_x, min_y, max_x, max_y = extent
         height = int((max_y - min_y) / resolution)
         width = int((max_x - min_x) / resolution)
-        out_shape = (width, height)
+        out_shape = (height, width)
         with rasterio.open(dataset_address) as src:
             with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
                 array = vrt.read(
@@ -114,7 +114,7 @@ class EOProduct(EOProduct_core):
                     out_shape=out_shape,
                     resampling=Resampling.bilinear,
                 )
-                return xr.DataArray(array)
+                return xr.DataArray(dims=["y", "x"], data=array)
 
     def encode(self, raster, encoding="protobuf"):
         """Encode the subset to a network-compatible format.
