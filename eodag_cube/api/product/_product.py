@@ -24,6 +24,7 @@ from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 
 from eodag.api.product._product import EOProduct as EOProduct_core
+from eodag.utils import get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 
 logger = logging.getLogger("eodag_cube.api.product")
@@ -102,7 +103,8 @@ class EOProduct(EOProduct_core):
             if not path_of_downloaded_file:
                 return fail_value
             dataset_address = self.driver.get_data_address(self, band)
-        min_x, min_y, max_x, max_y = extent
+        extent_bounds = get_geometry_from_various(geometry=extent).bounds
+        min_x, min_y, max_x, max_y = extent_bounds
         height = int((max_y - min_y) / resolution)
         width = int((max_x - min_x) / resolution)
         out_shape = (height, width)
@@ -110,7 +112,7 @@ class EOProduct(EOProduct_core):
             with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
                 array = vrt.read(
                     1,
-                    window=vrt.window(*extent),
+                    window=vrt.window(*extent_bounds),
                     out_shape=out_shape,
                     resampling=Resampling.bilinear,
                 )
