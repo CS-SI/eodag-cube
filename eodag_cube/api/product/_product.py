@@ -69,9 +69,18 @@ class EOProduct(EOProduct_core):
         :type resolution: float
         :param band: The band of the dataset to retrieve (e.g.: 'B01')
         :type band: str
-        :param extent: The coordinates on which to zoom as a tuple
-                        (min_x, min_y, max_x, max_y) in the given `crs`
-        :type extent: (float, float, float, float)
+        :param extent: The coordinates on which to zoom, matching the given CRS. Can be defined in different ways
+                    (its bounds will be used):
+
+                    * with a Shapely geometry object:
+                      :class:`shapely.geometry.base.BaseGeometry`
+                    * with a bounding box (dict with keys: "lonmin", "latmin", "lonmax", "latmax"):
+                      ``dict.fromkeys(["lonmin", "latmin", "lonmax", "latmax"])``
+                    * with a bounding box as list of float:
+                      ``[lonmin, latmin, lonmax, latmax]``
+                    * with a WKT str
+
+        :type extent: Union[str, dict, shapely.geometry.base.BaseGeometry]
         :returns: The numeric matrix corresponding to the sub dataset or an empty
                     array if unable to get the data
         :rtype: xarray.DataArray
