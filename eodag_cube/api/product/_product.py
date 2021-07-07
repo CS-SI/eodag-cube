@@ -24,6 +24,7 @@ from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 
 from eodag.api.product._product import EOProduct as EOProduct_core
+from eodag.utils import get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 
 logger = logging.getLogger("eodag_cube.api.product")
@@ -68,9 +69,18 @@ class EOProduct(EOProduct_core):
         :type resolution: float
         :param band: The band of the dataset to retrieve (e.g.: 'B01')
         :type band: str
-        :param extent: The coordinates on which to zoom as a tuple
-                        (min_x, min_y, max_x, max_y) in the given `crs`
-        :type extent: (float, float, float, float)
+        :param extent: The coordinates on which to zoom, matching the given CRS. Can be defined in different ways
+                    (its bounds will be used):
+
+                    * with a Shapely geometry object:
+                      :class:`shapely.geometry.base.BaseGeometry`
+                    * with a bounding box (dict with keys: "lonmin", "latmin", "lonmax", "latmax"):
+                      ``dict.fromkeys(["lonmin", "latmin", "lonmax", "latmax"])``
+                    * with a bounding box as list of float:
+                      ``[lonmin, latmin, lonmax, latmax]``
+                    * with a WKT str
+
+        :type extent: Union[str, dict, shapely.geometry.base.BaseGeometry]
         :returns: The numeric matrix corresponding to the sub dataset or an empty
                     array if unable to get the data
         :rtype: xarray.DataArray
@@ -102,7 +112,8 @@ class EOProduct(EOProduct_core):
             if not path_of_downloaded_file:
                 return fail_value
             dataset_address = self.driver.get_data_address(self, band)
-        min_x, min_y, max_x, max_y = extent
+        extent_bounds = get_geometry_from_various(geometry=extent).bounds
+        min_x, min_y, max_x, max_y = extent_bounds
         height = int((max_y - min_y) / resolution)
         width = int((max_x - min_x) / resolution)
         out_shape = (height, width)
@@ -110,7 +121,7 @@ class EOProduct(EOProduct_core):
             with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
                 array = vrt.read(
                     1,
-                    window=vrt.window(*extent),
+                    window=vrt.window(*extent_bounds),
                     out_shape=out_shape,
                     resampling=Resampling.bilinear,
                 )
