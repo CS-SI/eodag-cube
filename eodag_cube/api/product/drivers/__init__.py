@@ -18,5 +18,23 @@
 """EODAG drivers package"""
 from eodag.api.product.drivers.base import NoDriver  # noqa
 from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
+from eodag_cube.api.product.drivers.stac_assets import StacAssets
 
-DRIVERS = {"S2_MSI_L1C": Sentinel2L1C()}
+DRIVERS = [
+    {
+        "criteria": [lambda prod: True if hasattr(prod, "assets") else False],
+        "driver": StacAssets(),
+    },
+    {
+        "criteria": [lambda prod: True if "assets" in prod.properties else False],
+        "driver": StacAssets(),
+    },
+    {
+        "criteria": [
+            lambda prod: True
+            if getattr(prod, "product_type") == "S2_MSI_L1C"
+            else False
+        ],
+        "driver": Sentinel2L1C(),
+    },
+]
