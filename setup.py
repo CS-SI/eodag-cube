@@ -24,7 +24,7 @@ setup(
     package_data={"": ["LICENSE"]},
     include_package_data=True,
     install_requires=[
-        "eodag >= 2.0b2",
+        "eodag >= 2.3.1",
         "numpy",
         "rasterio",
         "protobuf",
