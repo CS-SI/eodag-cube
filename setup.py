@@ -30,6 +30,7 @@ setup(
         "protobuf",
         "grpcio",
         "xarray",
+        "rioxarray",
     ],
     extras_require={
         "dev": [

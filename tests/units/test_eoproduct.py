@@ -178,7 +178,9 @@ class TestEOProduct(EODagTestCase):
         resolution = resolution or 0.0006
         band = band or "B01"
         extent = extent or (2.1, 42.8, 2.2, 42.9)
-        data = product.get_data(crs, resolution, band, extent)
+        data = product.get_data(
+            band=band, crs=crs, resolution=resolution, extent=extent
+        )
         if give_back:
             returned_params = tuple(
                 value for name, value in locals().items() if name in give_back
