@@ -122,23 +122,52 @@ class EOProduct(EOProduct_core):
         clip_bounds = clip_geom.bounds
         minx, miny, maxx, maxy = clip_bounds
 
-        with rasterio.open(dataset_address) as src:
+        # rasterio/gdal needed env variables for auth
+        gdal_env = self._get_rio_env(dataset_address)
 
-            with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
-                da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
-                if extent:
-                    da = da.rio.clip_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
-                if resolution:
-                    height = int((maxy - miny) / resolution)
-                    width = int((maxx - minx) / resolution)
-                    out_shape = (height, width)
+        with rasterio.Env(**gdal_env):
+            with rasterio.open(dataset_address) as src:
+                with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
 
-                    da = da.rio.reproject(
-                        dst_crs=crs,
-                        shape=out_shape,
-                        resampling=Resampling.bilinear,
-                    )
-                return da
+                    da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
+                    if extent:
+                        da = da.rio.clip_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
+                    if resolution:
+                        height = int((maxy - miny) / resolution)
+                        width = int((maxx - minx) / resolution)
+                        out_shape = (height, width)
+
+                        da = da.rio.reproject(
+                            dst_crs=crs,
+                            shape=out_shape,
+                            resampling=Resampling.bilinear,
+                        )
+                    return da
+
+    def _get_rio_env(self, dataset_address):
+        """Get rasterio environement variables needed for data access.
+
+        :param dataset_address: address of the data to read
+        :type dataset_address: str
+
+        :return: The rasterio environement variables
+        :rtype: dict
+        """
+        product_location_scheme = dataset_address.split("://")[0]
+        if product_location_scheme == "s3" and hasattr(
+            self.downloader, "get_bucket_name_and_prefix"
+        ):
+            bucket_name, prefix = self.downloader.get_bucket_name_and_prefix(
+                self, dataset_address
+            )
+            auth_dict = self.downloader_auth.authenticate()
+            return {
+                "session": rasterio.session.AWSSession(
+                    **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
+                )
+            }
+        else:
+            return {}
 
     def encode(self, raster, encoding="protobuf"):
         """Encode the subset to a network-compatible format.
