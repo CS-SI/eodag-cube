@@ -17,13 +17,15 @@
 # limitations under the License.
 import logging
 
-import numpy
+import numpy as np
 import rasterio
+import rioxarray
 import xarray as xr
 from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 
 from eodag.api.product._product import EOProduct as EOProduct_core
+from eodag.utils import get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 
 logger = logging.getLogger("eodag_cube.api.product")
@@ -57,25 +59,36 @@ class EOProduct(EOProduct_core):
     def __init__(self, *args, **kwargs):
         super(EOProduct, self).__init__(*args, **kwargs)
 
-    def get_data(self, crs, resolution, band, extent):
+    def get_data(self, band, crs, resolution=None, extent=None, **rioxr_kwargs):
         """Retrieves all or part of the raster data abstracted by the :class:`EOProduct`
 
+        :param band: The band of the dataset to retrieve (e.g.: 'B01')
+        :type band: str
         :param crs: The coordinate reference system in which the dataset should be
                     returned
         :type crs: str
         :param resolution: The resolution in which the dataset should be returned
                             (given in the unit of the crs)
         :type resolution: float
-        :param band: The band of the dataset to retrieve (e.g.: 'B01')
-        :type band: str
-        :param extent: The coordinates on which to zoom as a tuple
-                        (min_x, min_y, max_x, max_y) in the given `crs`
-        :type extent: (float, float, float, float)
+        :param extent: The coordinates on which to zoom, matching the given CRS. Can be defined in different ways
+                    (its bounds will be used):
+
+                    * with a Shapely geometry object:
+                      :class:`shapely.geometry.base.BaseGeometry`
+                    * with a bounding box (dict with keys: "lonmin", "latmin", "lonmax", "latmax"):
+                      ``dict.fromkeys(["lonmin", "latmin", "lonmax", "latmax"])``
+                    * with a bounding box as list of float:
+                      ``[lonmin, latmin, lonmax, latmax]``
+                    * with a WKT str
+
+        :type extent: Union[str, dict, shapely.geometry.base.BaseGeometry]
+        :param rioxr_kwargs: kwargs passed to ``rioxarray.open_rasterio()``
+        :type rioxr_kwargs: dict
         :returns: The numeric matrix corresponding to the sub dataset or an empty
                     array if unable to get the data
         :rtype: xarray.DataArray
         """
-        fail_value = xr.DataArray(numpy.empty(0))
+        fail_value = xr.DataArray(np.empty(0))
         try:
             dataset_address = self.driver.get_data_address(self, band)
         except UnsupportedDatasetAddressScheme:
@@ -102,19 +115,59 @@ class EOProduct(EOProduct_core):
             if not path_of_downloaded_file:
                 return fail_value
             dataset_address = self.driver.get_data_address(self, band)
-        min_x, min_y, max_x, max_y = extent
-        height = int((max_y - min_y) / resolution)
-        width = int((max_x - min_x) / resolution)
-        out_shape = (height, width)
-        with rasterio.open(dataset_address) as src:
-            with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
-                array = vrt.read(
-                    1,
-                    window=vrt.window(*extent),
-                    out_shape=out_shape,
-                    resampling=Resampling.bilinear,
+
+        clip_geom = (
+            get_geometry_from_various(geometry=extent) if extent else self.geometry
+        )
+        clip_bounds = clip_geom.bounds
+        minx, miny, maxx, maxy = clip_bounds
+
+        # rasterio/gdal needed env variables for auth
+        gdal_env = self._get_rio_env(dataset_address)
+
+        with rasterio.Env(**gdal_env):
+            with rasterio.open(dataset_address) as src:
+                with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
+
+                    da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
+                    if extent:
+                        da = da.rio.clip_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
+                    if resolution:
+                        height = int((maxy - miny) / resolution)
+                        width = int((maxx - minx) / resolution)
+                        out_shape = (height, width)
+
+                        da = da.rio.reproject(
+                            dst_crs=crs,
+                            shape=out_shape,
+                            resampling=Resampling.bilinear,
+                        )
+                    return da
+
+    def _get_rio_env(self, dataset_address):
+        """Get rasterio environement variables needed for data access.
+
+        :param dataset_address: address of the data to read
+        :type dataset_address: str
+
+        :return: The rasterio environement variables
+        :rtype: dict
+        """
+        product_location_scheme = dataset_address.split("://")[0]
+        if product_location_scheme == "s3" and hasattr(
+            self.downloader, "get_bucket_name_and_prefix"
+        ):
+            bucket_name, prefix = self.downloader.get_bucket_name_and_prefix(
+                self, dataset_address
+            )
+            auth_dict = self.downloader_auth.authenticate()
+            return {
+                "session": rasterio.session.AWSSession(
+                    **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
                 )
-                return xr.DataArray(dims=["y", "x"], data=array)
+            }
+        else:
+            return {}
 
     def encode(self, raster, encoding="protobuf"):
         """Encode the subset to a network-compatible format.

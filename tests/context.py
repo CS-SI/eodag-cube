@@ -30,6 +30,7 @@ from eodag.api.product import EOProduct
 from eodag.api.product.drivers import DRIVERS
 from eodag.api.product.drivers.base import NoDriver
 from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
+from eodag_cube.api.product.drivers.stac_assets import StacAssets
 from eodag.api.search_result import SearchResult
 from eodag.cli import download, eodag, list_pt, search_crunch
 from eodag.plugins.authentication.base import Authentication
