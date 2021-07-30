@@ -7,6 +7,9 @@
 .. image:: https://img.shields.io/pypi/pyversions/eodag-cube.svg
     :target: https://pypi.org/project/eodag-cube/
 
+.. image:: https://mybinder.org/badge_logo.svg
+    :target: https://mybinder.org/v2/git/https%3A%2F%2Fgithub.com%2FCS-SI%2Feodag-cube.git/develop?filepath=docs%2Fnotebooks%2Fget_data_basic.ipynb
+
 EODAG-cube
 ==========
 
