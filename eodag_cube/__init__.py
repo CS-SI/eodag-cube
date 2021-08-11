@@ -19,7 +19,7 @@
 
 __title__ = "eodag-cube"
 __description__ = "Data access for EODAG"
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "CS GROUP - France (CSSI)"
 __author_email__ = "admin@geostorm.eu"
 __url__ = "https://github.com/CS-SI/eodag-cube"
