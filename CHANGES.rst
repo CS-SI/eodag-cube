@@ -1,6 +1,11 @@
 Release history
 ---------------
 
+0.2.1 (2021-08-11)
+++++++++++++++++++
+
+- Specified minimal `eodag` version needed for binder (#22)
+
 0.2.0 (2021-07-30)
 ++++++++++++++++++
 
