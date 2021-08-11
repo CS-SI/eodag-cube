@@ -1,1 +1,1 @@
-eodag[tutorials]
+eodag[tutorials] >= 2.3.3
