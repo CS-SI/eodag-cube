@@ -190,7 +190,7 @@ class EOProduct(EOProduct_core):
         :return: The rasterio environement variables
         :rtype: dict
         """
-        product_location_scheme = str(dataset_address).split("://")[0]
+        product_location_scheme = dataset_address.split("://")[0]
         if product_location_scheme == "s3" and hasattr(
             self.downloader, "get_bucket_name_and_prefix"
         ):
