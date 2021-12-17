@@ -29,6 +29,7 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.api.product import EOProduct
 from eodag.api.product.drivers import DRIVERS
 from eodag.api.product.drivers.base import NoDriver
+from eodag_cube.api.product.drivers.generic import GenericDriver
 from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
 from eodag_cube.api.product.drivers.stac_assets import StacAssets
 from eodag.api.search_result import SearchResult
