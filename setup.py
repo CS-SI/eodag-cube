@@ -27,7 +27,7 @@ setup(
         "eodag >= 2.3.2",
         "numpy",
         "rasterio",
-        "protobuf",
+        "protobuf <= 3.20",
         "grpcio",
         "xarray",
         "rioxarray",
@@ -37,7 +37,7 @@ setup(
             "flake8",
             "isort",
             "pre-commit",
-            "pytest==5.0.1",  # pytest pined to v5.0.1 to avoid issue when run from VSCode
+            "pytest",
             "pytest-cov",
             "tox",
             "nose",
