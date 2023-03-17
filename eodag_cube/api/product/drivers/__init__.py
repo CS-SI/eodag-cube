@@ -17,6 +17,7 @@
 # limitations under the License.
 """EODAG drivers package"""
 from eodag.api.product.drivers.base import NoDriver  # noqa
+from eodag_cube.api.product.drivers.generic import GenericDriver
 from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
 from eodag_cube.api.product.drivers.stac_assets import StacAssets
 
@@ -36,5 +37,9 @@ DRIVERS = [
             else False
         ],
         "driver": Sentinel2L1C(),
+    },
+    {
+        "criteria": [lambda prod: True],
+        "driver": GenericDriver(),
     },
 ]

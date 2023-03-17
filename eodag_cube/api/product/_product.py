@@ -16,19 +16,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from contextlib import contextmanager
 
 import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
-from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.utils import get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 
-logger = logging.getLogger("eodag_cube.api.product")
+logger = logging.getLogger("eodag.api.product")
 
 
 class EOProduct(EOProduct_core):
@@ -59,19 +59,26 @@ class EOProduct(EOProduct_core):
     def __init__(self, *args, **kwargs):
         super(EOProduct, self).__init__(*args, **kwargs)
 
-    def get_data(self, band, crs, resolution=None, extent=None, **rioxr_kwargs):
+    def get_data(
+        self,
+        band,
+        crs=None,
+        resolution=None,
+        extent=None,
+        resampling=None,
+        **rioxr_kwargs,
+    ):
         """Retrieves all or part of the raster data abstracted by the :class:`EOProduct`
 
         :param band: The band of the dataset to retrieve (e.g.: 'B01')
         :type band: str
-        :param crs: The coordinate reference system in which the dataset should be
-                    returned
+        :param crs: (optional) The coordinate reference system in which the dataset should be returned
         :type crs: str
-        :param resolution: The resolution in which the dataset should be returned
+        :param resolution: (optional) The resolution in which the dataset should be returned
                             (given in the unit of the crs)
         :type resolution: float
-        :param extent: The coordinates on which to zoom, matching the given CRS. Can be defined in different ways
-                    (its bounds will be used):
+        :param extent: (optional) The coordinates on which to zoom, matching the given CRS. Can be defined in
+                    different ways (its bounds will be used):
 
                     * with a Shapely geometry object:
                       :class:`shapely.geometry.base.BaseGeometry`
@@ -82,6 +89,8 @@ class EOProduct(EOProduct_core):
                     * with a WKT str
 
         :type extent: Union[str, dict, shapely.geometry.base.BaseGeometry]
+        :param resampling: (optional) Warp resampling algorithm passed to :class:`rasterio.vrt.WarpedVRT`
+        :type resampling: Resampling
         :param rioxr_kwargs: kwargs passed to ``rioxarray.open_rasterio()``
         :type rioxr_kwargs: dict
         :returns: The numeric matrix corresponding to the sub dataset or an empty
@@ -90,6 +99,7 @@ class EOProduct(EOProduct_core):
         """
         fail_value = xr.DataArray(np.empty(0))
         try:
+            logger.debug("Getting data address")
             dataset_address = self.driver.get_data_address(self, band)
         except UnsupportedDatasetAddressScheme:
             logger.warning(
@@ -98,7 +108,7 @@ class EOProduct(EOProduct_core):
                 "data..."
             )
             try:
-                path_of_downloaded_file = self.download()
+                path_of_downloaded_file = self.download(extract=True)
             except (RuntimeError, DownloadError):
                 import traceback
 
@@ -125,24 +135,51 @@ class EOProduct(EOProduct_core):
         # rasterio/gdal needed env variables for auth
         gdal_env = self._get_rio_env(dataset_address)
 
-        with rasterio.Env(**gdal_env):
-            with rasterio.open(dataset_address) as src:
-                with WarpedVRT(src, crs=crs, resampling=Resampling.bilinear) as vrt:
+        warped_vrt_args = {}
+        if crs is not None:
+            warped_vrt_args["crs"] = crs
+        if resampling is not None:
+            warped_vrt_args["resampling"] = resampling
 
-                    da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
-                    if extent:
-                        da = da.rio.clip_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
-                    if resolution:
-                        height = int((maxy - miny) / resolution)
-                        width = int((maxx - minx) / resolution)
-                        out_shape = (height, width)
+        @contextmanager
+        def pass_resource(resource, **kwargs):
+            yield resource
 
-                        da = da.rio.reproject(
-                            dst_crs=crs,
-                            shape=out_shape,
-                            resampling=Resampling.bilinear,
-                        )
-                    return da
+        if warped_vrt_args:
+            warped_vrt_class = WarpedVRT
+        else:
+            warped_vrt_class = pass_resource
+
+        logger.debug(f"Getting data from {dataset_address}")
+
+        try:
+            with rasterio.Env(**gdal_env):
+                with rasterio.open(dataset_address) as src:
+                    with warped_vrt_class(src, **warped_vrt_args) as vrt:
+                        da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
+                        if extent:
+                            da = da.rio.clip_box(
+                                minx=minx, miny=miny, maxx=maxx, maxy=maxy
+                            )
+                        if resolution:
+                            height = int((maxy - miny) / resolution)
+                            width = int((maxx - minx) / resolution)
+                            out_shape = (height, width)
+
+                            reproject_args = {}
+                            if crs is not None:
+                                reproject_args["dst_crs"] = crs
+                            if resampling is not None:
+                                reproject_args["resampling"] = resampling
+
+                            da = da.rio.reproject(
+                                shape=out_shape,
+                                **reproject_args,
+                            )
+                        return da
+        except Exception as e:
+            logger.error(e)
+            return fail_value
 
     def _get_rio_env(self, dataset_address):
         """Get rasterio environement variables needed for data access.
