@@ -1,6 +1,14 @@
 Release history
 ---------------
 
+0.3.0 (2023-03-17)
+++++++++++++++++++
+
+- New Generic driver (#26)
+- `get_data()` `crs` and `resampling` parameters are now facultative (#25)
+- Support python versions from `3.7` to `3.11` (#34)
+- `pre-commit` and dependencies updates (#33)
+
 0.2.1 (2021-08-11)
 ++++++++++++++++++
 
