@@ -1,6 +1,13 @@
 Release history
 ---------------
 
+0.3.1 (2023-11-14)
+++++++++++++++++++
+
+- Allows regex in band selection through `StacAssets` driver (#38)
+- Removes support for `python3.7`` and adds support for `python3.12` (#39)
+- Various minor fixes and improvements  (#37)
+
 0.3.0 (2023-03-17)
 ++++++++++++++++++
 
