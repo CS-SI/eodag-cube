@@ -35,16 +35,39 @@ class TestEOProductDriverStacAssets(EODagTestCase):
             "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
         )
         self.product.assets = {
-            "B01": {
-                "title": "Band 1 (coastal)",
+            "T31TDH_20180101T124911_B01.jp2": {
+                "title": "Band 1",
                 "type": "image/jp2",
+                "roles": ["data"],
                 "href": os.path.join(
                     TEST_RESOURCES_PATH,
                     "products",
                     "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
                     + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B01.jp2",
                 ),
-            }
+            },
+            "T31TDH_20180101T124911_B03.jp2": {
+                "title": "Band 3",
+                "type": "image/jp2",
+                "roles": ["data"],
+                "href": os.path.join(
+                    TEST_RESOURCES_PATH,
+                    "products",
+                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
+                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B03.jp2",
+                ),
+            },
+            "T31TDH_20180101T124911_B01.json": {
+                "title": "Band 1 metadata",
+                "type": "image/jp2",
+                "roles": ["metadata"],
+                "href": os.path.join(
+                    TEST_RESOURCES_PATH,
+                    "products",
+                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
+                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B01.json",
+                ),
+            },
         }
         self.stac_assets_driver = StacAssets()
 
@@ -54,11 +77,22 @@ class TestEOProductDriverStacAssets(EODagTestCase):
             driver = StacAssets()
             band = "B02"
             self.assertRaises(AddressNotFound, driver.get_data_address, product, band)
+            band = "B0"
+            self.assertRaises(AddressNotFound, driver.get_data_address, product, band)
 
     def test_driver_get_local_dataset_address_ok(self):
         """Driver returns a good address for an existing band"""
         with self._filesystem_product() as product:
-            band = "B01"
+            band = "b01"
+            address = self.stac_assets_driver.get_data_address(product, band)
+            self.assertEqual(address, self.local_band_file)
+            band = "t31tdh_20180101t124911_b01"
+            address = self.stac_assets_driver.get_data_address(product, band)
+            self.assertEqual(address, self.local_band_file)
+            band = "T31TDH_20180101T124911_B01.jp2"
+            address = self.stac_assets_driver.get_data_address(product, band)
+            self.assertEqual(address, self.local_band_file)
+            band = "T31TDH.*B01.*"
             address = self.stac_assets_driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
 
