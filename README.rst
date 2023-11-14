@@ -72,7 +72,7 @@ Example usage for interacting with the api in your Python code:
 Contribute
 ==========
 
-If you intend to contribute to eodag-sentinelsat source code::
+If you intend to contribute to eodag-cube source code::
 
     git clone https://github.com/CS-SI/eodag-cube.git
     cd eodag-cube
