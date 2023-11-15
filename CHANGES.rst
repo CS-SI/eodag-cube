@@ -1,7 +1,7 @@
 Release history
 ---------------
 
-0.3.1 (2023-11-14)
+0.3.1 (2023-11-15)
 ++++++++++++++++++
 
 - Allows regex in band selection through `StacAssets` driver (#38)
