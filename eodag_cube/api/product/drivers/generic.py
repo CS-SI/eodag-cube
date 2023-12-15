@@ -42,7 +42,7 @@ class GenericDriver(DatasetDriver):
                 try:
                     # return the first file readable by rasterio
                     rasterio.drivers.driver_from_extension(filename)
-                    return str(filename)
+                    return str(filename.resolve())
                 except ValueError:
                     pass
             raise AddressNotFound
