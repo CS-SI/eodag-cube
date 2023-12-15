@@ -34,16 +34,22 @@ class TestEOProductDriverStacAssets(EODagTestCase):
             "products",
             "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
         )
+        product_img_data_path = os.path.join(
+            TEST_RESOURCES_PATH,
+            "products",
+            "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
+            "GRANULE",
+            "L1C_T31TDH_A013204_20180101T105435",
+            "IMG_DATA",
+        )
         self.product.assets = {
             "T31TDH_20180101T124911_B01.jp2": {
                 "title": "Band 1",
                 "type": "image/jp2",
                 "roles": ["data"],
                 "href": os.path.join(
-                    TEST_RESOURCES_PATH,
-                    "products",
-                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
-                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B01.jp2",
+                    product_img_data_path,
+                    "T31TDH_20180101T105441_B01.jp2",
                 ),
             },
             "T31TDH_20180101T124911_B03.jp2": {
@@ -51,10 +57,8 @@ class TestEOProductDriverStacAssets(EODagTestCase):
                 "type": "image/jp2",
                 "roles": ["data"],
                 "href": os.path.join(
-                    TEST_RESOURCES_PATH,
-                    "products",
-                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
-                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B03.jp2",
+                    product_img_data_path,
+                    "T31TDH_20180101T105441_B03.jp2",
                 ),
             },
             "T31TDH_20180101T124911_B01.json": {
@@ -62,10 +66,8 @@ class TestEOProductDriverStacAssets(EODagTestCase):
                 "type": "image/jp2",
                 "roles": ["metadata"],
                 "href": os.path.join(
-                    TEST_RESOURCES_PATH,
-                    "products",
-                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
-                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B01.json",
+                    product_img_data_path,
+                    "T31TDH_20180101T105441_B01.json",
                 ),
             },
         }
