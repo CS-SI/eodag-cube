@@ -23,7 +23,9 @@ from eodag_cube.api.product.drivers.stac_assets import StacAssets
 
 DRIVERS = [
     {
-        "criteria": [lambda prod: True if hasattr(prod, "assets") else False],
+        "criteria": [
+            lambda prod: True if len(getattr(prod, "assets", {})) > 0 else False
+        ],
         "driver": StacAssets(),
     },
     {
