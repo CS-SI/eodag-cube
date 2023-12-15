@@ -16,7 +16,6 @@ The Apache 2.0 License
 The following components are provided under the  Apache 2.0 License  (https://opensource.org/licenses/Apache-2.0).
 See project link for details.
 
-https://grpc.io/
 https://github.com/pydata/xarray
 https://github.com/corteva/rioxarray
 https://github.com/CS-SI/eodag
@@ -31,4 +30,3 @@ See project link for details.
 
 http://www.numpy.org/
 https://github.com/mapbox/rasterio
-https://github.com/google/protobuf
