@@ -27,8 +27,6 @@ setup(
         "eodag >= 2.3.2",
         "numpy",
         "rasterio",
-        "protobuf <= 3.20",
-        "grpcio",
         "xarray",
         "rioxarray",
     ],
