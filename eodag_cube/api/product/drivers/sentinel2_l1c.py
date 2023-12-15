@@ -80,7 +80,7 @@ class Sentinel2L1C(DatasetDriver):
                                     lambda f: band_file_pattern.match(f),
                                     subdataset.files,
                                 ):
-                                    return filename
+                                    return os.path.normpath(filename)
                 raise AddressNotFound
         if product_location_scheme == "s3":
             access_key, access_secret = eo_product.downloader_auth.authenticate()

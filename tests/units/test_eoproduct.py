@@ -56,7 +56,7 @@ class TestEOProduct(EODagTestCase):
     def test_get_data_local_product_ok(self):
         """A call to get_data on a product present in the local filesystem must succeed"""  # noqa
         self.eoproduct_props.update(
-            {"downloadLink": "file://{}".format(self.local_product_abspath)}
+            {"downloadLink": "file:///{}".format(self.local_product_abspath.strip("/"))}
         )
         product = EOProduct(
             self.provider, self.eoproduct_props, productType=self.product_type

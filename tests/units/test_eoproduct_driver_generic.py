@@ -70,7 +70,9 @@ class TestEOProductDriverGeneric(EODagTestCase):
     def _filesystem_product(self):
         original = self.product.location
         try:
-            self.product.location = "file://{}".format(self.product.properties["title"])
+            self.product.location = "file:///{}".format(
+                self.product.properties["title"].strip("/")
+            )
             yield self.product
         finally:
             self.product.location = original
