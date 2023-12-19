@@ -21,7 +21,7 @@ setup(
     url=metadata["__url__"],
     license=metadata["__license__"],
     packages=find_packages(exclude=("*.tests", "*.tests.*", "tests.*", "tests")),
-    package_data={"": ["LICENSE"]},
+    package_data={"": ["LICENSE", "NOTICE"], "eodag_cube": ["py.typed"]},
     include_package_data=True,
     install_requires=[
         "eodag >= 2.3.2",

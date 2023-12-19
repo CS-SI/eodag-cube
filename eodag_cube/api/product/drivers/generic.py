@@ -15,7 +15,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import rasterio
 
@@ -23,15 +26,24 @@ from eodag.api.product.drivers.base import DatasetDriver
 from eodag.utils import uri_to_path
 from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressScheme
 
+if TYPE_CHECKING:
+    from eodag.api.product._product import EOProduct
+
 
 class GenericDriver(DatasetDriver):
     """Generic Driver for products that need to be downloaded"""
 
-    def get_data_address(self, eo_product, band):
+    def get_data_address(self, eo_product: EOProduct, band: str) -> str:
         """Get the address of a product subdataset.
 
-        See :func:`~eodag.api.product.drivers.base.DatasetDriver.get_data_address` to get help on the formal
-        parameters.
+        :param eo_product: The product whom underlying dataset address is to be retrieved
+        :type eo_product: :class:`~eodag.api.product._product.EOProduct`
+        :param band: The band to retrieve (e.g: 'B01')
+        :type band: str
+        :returns: An address for the dataset
+        :rtype: str
+        :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
+        :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
