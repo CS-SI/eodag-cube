@@ -15,8 +15,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import logging
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import numpy as np
 import rasterio
@@ -28,7 +31,12 @@ from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.utils import get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 
-logger = logging.getLogger("eodag.api.product")
+if TYPE_CHECKING:
+    from rasterio.enums import Resampling
+    from shapely.geometry.base import BaseGeometry
+    from xarray import DataArray
+
+logger = logging.getLogger("eodag-cube.api.product")
 
 
 class EOProduct(EOProduct_core):
@@ -47,6 +55,19 @@ class EOProduct(EOProduct_core):
     :type provider: str
     :param properties: The metadata of the product
     :type properties: dict
+    :ivar product_type: The product type
+    :vartype product_type: str
+    :ivar location: The path to the product, either remote or local if downloaded
+    :vartype location: str
+    :ivar remote_location: The remote path to the product
+    :vartype remote_location: str
+    :ivar search_kwargs: The search kwargs used by eodag to search for the product
+    :vartype search_kwargs: Any
+    :ivar geometry: The geometry of the product
+    :vartype geometry: :class:`shapely.geometry.base.BaseGeometry`
+    :ivar search_intersection: The intersection between the product's geometry
+                               and the search area.
+    :vartype search_intersection: :class:`shapely.geometry.base.BaseGeometry` or None
 
     .. note::
         The geojson spec `enforces <https://github.com/geojson/draft-geojson/pull/6>`_
@@ -56,18 +77,22 @@ class EOProduct(EOProduct_core):
         mentioned CRS.
     """
 
-    def __init__(self, *args, **kwargs):
-        super(EOProduct, self).__init__(*args, **kwargs)
+    def __init__(
+        self, provider: str, properties: Dict[str, Any], **kwargs: Any
+    ) -> None:
+        super(EOProduct, self).__init__(
+            provider=provider, properties=properties, **kwargs
+        )
 
     def get_data(
         self,
-        band,
-        crs=None,
-        resolution=None,
-        extent=None,
-        resampling=None,
-        **rioxr_kwargs,
-    ):
+        band: str,
+        crs: Optional[str] = None,
+        resolution: Optional[float] = None,
+        extent: Optional[Union[str, Dict[str, float], BaseGeometry]] = None,
+        resampling: Optional[Resampling] = None,
+        **rioxr_kwargs: Any,
+    ) -> DataArray:
         """Retrieves all or part of the raster data abstracted by the :class:`EOProduct`
 
         :param band: The band of the dataset to retrieve (e.g.: 'B01')
@@ -92,7 +117,7 @@ class EOProduct(EOProduct_core):
         :param resampling: (optional) Warp resampling algorithm passed to :class:`rasterio.vrt.WarpedVRT`
         :type resampling: Resampling
         :param rioxr_kwargs: kwargs passed to ``rioxarray.open_rasterio()``
-        :type rioxr_kwargs: dict
+        :type rioxr_kwargs: Any
         :returns: The numeric matrix corresponding to the sub dataset or an empty
                     array if unable to get the data
         :rtype: xarray.DataArray
@@ -142,7 +167,7 @@ class EOProduct(EOProduct_core):
             warped_vrt_args["resampling"] = resampling
 
         @contextmanager
-        def pass_resource(resource, **kwargs):
+        def pass_resource(resource: Any, **kwargs: Any) -> Any:
             yield resource
 
         if warped_vrt_args:
@@ -181,14 +206,14 @@ class EOProduct(EOProduct_core):
             logger.error(e)
             return fail_value
 
-    def _get_rio_env(self, dataset_address):
+    def _get_rio_env(self, dataset_address: str) -> Dict[str, Any]:
         """Get rasterio environement variables needed for data access.
 
         :param dataset_address: address of the data to read
         :type dataset_address: str
 
         :return: The rasterio environement variables
-        :rtype: dict
+        :rtype: Dict[str, Any]
         """
         product_location_scheme = dataset_address.split("://")[0]
         if product_location_scheme == "s3" and hasattr(

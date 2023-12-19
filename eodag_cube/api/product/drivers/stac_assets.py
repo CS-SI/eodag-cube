@@ -15,20 +15,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from eodag.api.product.drivers.base import DatasetDriver
 from eodag.utils.exceptions import AddressNotFound
+
+if TYPE_CHECKING:
+    from eodag.api.product._product import EOProduct
 
 
 class StacAssets(DatasetDriver):
     """Driver for Stac Assets"""
 
-    def get_data_address(self, eo_product, band):
+    def get_data_address(self, eo_product: EOProduct, band: str) -> str:
         """Get the address of a subdataset for a STAC provider product.
 
-        See :func:`~eodag.api.product.drivers.base.DatasetDriver.get_data_address` to get help on the formal
-        parameters.
+        :param eo_product: The product whom underlying dataset address is to be retrieved
+        :type eo_product: :class:`~eodag.api.product._product.EOProduct`
+        :param band: The band to retrieve (e.g: 'B01')
+        :type band: str
+        :returns: An address for the dataset
+        :rtype: str
+        :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
+        :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
         error_message = ""
 
@@ -47,7 +59,7 @@ class StacAssets(DatasetDriver):
             and p.match(s)
         ]
         if len(matching_keys) == 1:
-            return eo_product.assets[matching_keys[0]]["href"]
+            return str(eo_product.assets[matching_keys[0]]["href"])
         else:
             error_message += (
                 rf"{len(matching_keys)} assets keys found matching {p} AND "
@@ -68,7 +80,7 @@ class StacAssets(DatasetDriver):
                 and p.match(s)
             ]
             if len(matching_keys) == 1:
-                return eo_product.assets[matching_keys[0]]["href"]
+                return str(eo_product.assets[matching_keys[0]]["href"])
             else:
                 raise AddressNotFound(
                     rf"Please adapt given band parameter ('{band}') to match only one asset: {error_message}"
