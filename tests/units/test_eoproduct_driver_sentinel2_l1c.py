@@ -42,7 +42,10 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
             "products",
             "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
         )
-        self.sentinel2_l1c_driver = Sentinel2L1C()
+
+    def test_driver_set_stac_assets(self):
+        """The appropriate driver must have been set"""
+        self.assertIsInstance(self.product.driver, Sentinel2L1C)
 
     def test_driver_get_local_dataset_address_bad_band(self):
         """Driver must raise AddressNotFound if non existent band is requested"""
@@ -55,7 +58,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         """Driver returns a good address for an existing band"""
         with self._filesystem_product() as product:
             band = "B01"
-            address = self.sentinel2_l1c_driver.get_data_address(product, band)
+            address = self.product.driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
 
     @mock_s3
@@ -64,7 +67,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         with self._remote_product_s3() as product:
             self.create_mock_s3_bucket_and_product()
             band = "B01"
-            address = self.sentinel2_l1c_driver.get_data_address(product, band)
+            address = self.product.driver.get_data_address(product, band)
             self.assertEqual(
                 address, "s3://sentinel-s2-l1c/tiles/31/T/DJ/2018/1/28/0/B01.jp2"
             )
@@ -75,7 +78,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         band = "B01"
         self.assertRaises(
             UnsupportedDatasetAddressScheme,
-            self.sentinel2_l1c_driver.get_data_address,
+            self.product.driver.get_data_address,
             self.product,
             band,
         )
