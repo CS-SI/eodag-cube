@@ -41,7 +41,7 @@ setup(
             "nose",
             "faker",
             "coverage",
-            "moto",
+            "moto >= 5",
             "twine",
             "wheel",
         ]
