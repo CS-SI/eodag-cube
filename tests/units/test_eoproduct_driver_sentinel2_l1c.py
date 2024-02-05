@@ -20,7 +20,7 @@ import os
 from contextlib import contextmanager
 
 import boto3
-from moto import mock_s3
+from moto import mock_aws
 
 from tests import TEST_RESOURCES_PATH, EODagTestCase
 from tests.context import (
@@ -58,7 +58,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
             address = self.sentinel2_l1c_driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
 
-    @mock_s3
+    @mock_aws
     def test_driver_get_amazon_s3_remote_dataset_address_ok(self):
         """Driver must returns a good address for an existing band for a product stored on amazon s3"""
         with self._remote_product_s3() as product:
@@ -117,7 +117,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
 
         WARNING::
 
-            This internal method should only be used in a test decorated with: @mock_s3 from moto module
+            This internal method should only be used in a test decorated with: @mock_aws from moto module
         """
         s3 = boto3.resource("s3")
         s3.create_bucket(Bucket="sentinel-s2-l1c")
