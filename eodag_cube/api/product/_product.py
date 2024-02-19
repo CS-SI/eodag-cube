@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 import rasterio
@@ -30,6 +30,7 @@ from rasterio.vrt import WarpedVRT
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.utils import get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
+from eodag_cube.api.product._assets import AssetsDict
 
 if TYPE_CHECKING:
     from rasterio.enums import Resampling
@@ -83,13 +84,18 @@ class EOProduct(EOProduct_core):
         super(EOProduct, self).__init__(
             provider=provider, properties=properties, **kwargs
         )
+        core_assets_data = self.assets.data
+        self.assets = AssetsDict(self)
+        self.assets.update(core_assets_data)
 
     def get_data(
         self,
         band: str,
         crs: Optional[str] = None,
         resolution: Optional[float] = None,
-        extent: Optional[Union[str, Dict[str, float], BaseGeometry]] = None,
+        extent: Optional[
+            Union[str, Dict[str, float], List[float], BaseGeometry]
+        ] = None,
         resampling: Optional[Resampling] = None,
         **rioxr_kwargs: Any,
     ) -> DataArray:
