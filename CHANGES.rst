@@ -1,12 +1,21 @@
 Release history
 ---------------
 
+0.4.0 (2024-02-19)
+++++++++++++++++++
+
+- `get_data` directly available on `product.assets` (#46)
+- Adds windows support (#9)
+- Removes limited grpc support (#43)
+- Adds python type hints (#45)
+- Various minor fixes and improvements (#44)(#47)
+
 0.3.1 (2023-11-15)
 ++++++++++++++++++
 
 - Allows regex in band selection through `StacAssets` driver (#38)
 - Removes support for `python3.7`` and adds support for `python3.12` (#39)
-- Various minor fixes and improvements  (#37)
+- Various minor fixes and improvements (#37)
 
 0.3.0 (2023-03-17)
 ++++++++++++++++++
