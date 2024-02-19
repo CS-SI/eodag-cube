@@ -39,7 +39,10 @@ class TestEOProductDriverGeneric(EODagTestCase):
             "products",
             "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
         )
-        self.generic_driver = GenericDriver()
+
+    def test_driver_set_stac_assets(self):
+        """The appropriate driver must have been set"""
+        self.assertIsInstance(self.product.driver, GenericDriver)
 
     def test_driver_get_local_dataset_address_bad_band(self):
         """Driver must raise AddressNotFound if non existent band is requested"""
@@ -52,7 +55,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
         """Driver returns a good address for an existing band"""
         with self._filesystem_product() as product:
             band = "B01"
-            address = self.generic_driver.get_data_address(product, band)
+            address = self.product.driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
 
     def test_driver_get_http_remote_dataset_address_fail(self):
@@ -61,7 +64,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
         band = "B01"
         self.assertRaises(
             UnsupportedDatasetAddressScheme,
-            self.generic_driver.get_data_address,
+            self.product.driver.get_data_address,
             self.product,
             band,
         )
@@ -70,7 +73,9 @@ class TestEOProductDriverGeneric(EODagTestCase):
     def _filesystem_product(self):
         original = self.product.location
         try:
-            self.product.location = "file://{}".format(self.product.properties["title"])
+            self.product.location = "file:///{}".format(
+                self.product.properties["title"].strip("/")
+            )
             yield self.product
         finally:
             self.product.location = original

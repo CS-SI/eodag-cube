@@ -19,6 +19,10 @@
 import os
 from contextlib import contextmanager
 
+from rasterio.crs import CRS
+from rasterio.enums import Resampling
+from xarray import DataArray
+
 from tests import TEST_RESOURCES_PATH, EODagTestCase
 from tests.context import AddressNotFound, EOProduct, StacAssets
 
@@ -34,42 +38,51 @@ class TestEOProductDriverStacAssets(EODagTestCase):
             "products",
             "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
         )
-        self.product.assets = {
-            "T31TDH_20180101T124911_B01.jp2": {
-                "title": "Band 1",
-                "type": "image/jp2",
-                "roles": ["data"],
-                "href": os.path.join(
-                    TEST_RESOURCES_PATH,
-                    "products",
-                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
-                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B01.jp2",
-                ),
-            },
-            "T31TDH_20180101T124911_B03.jp2": {
-                "title": "Band 3",
-                "type": "image/jp2",
-                "roles": ["data"],
-                "href": os.path.join(
-                    TEST_RESOURCES_PATH,
-                    "products",
-                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
-                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B03.jp2",
-                ),
-            },
-            "T31TDH_20180101T124911_B01.json": {
-                "title": "Band 1 metadata",
-                "type": "image/jp2",
-                "roles": ["metadata"],
-                "href": os.path.join(
-                    TEST_RESOURCES_PATH,
-                    "products",
-                    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE/"
-                    + "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B01.json",
-                ),
-            },
-        }
-        self.stac_assets_driver = StacAssets()
+        product_img_data_path = os.path.join(
+            TEST_RESOURCES_PATH,
+            "products",
+            "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
+            "GRANULE",
+            "L1C_T31TDH_A013204_20180101T105435",
+            "IMG_DATA",
+        )
+        self.product.assets.update(
+            {
+                "T31TDH_20180101T124911_B01.jp2": {
+                    "title": "Band 1",
+                    "type": "image/jp2",
+                    "roles": ["data"],
+                    "href": os.path.join(
+                        product_img_data_path,
+                        "T31TDH_20180101T105441_B01.jp2",
+                    ),
+                },
+                "T31TDH_20180101T124911_B03.jp2": {
+                    "title": "Band 3",
+                    "type": "image/jp2",
+                    "roles": ["data"],
+                    "href": os.path.join(
+                        product_img_data_path,
+                        "T31TDH_20180101T105441_B03.jp2",
+                    ),
+                },
+                "T31TDH_20180101T124911_B01.json": {
+                    "title": "Band 1 metadata",
+                    "type": "image/jp2",
+                    "roles": ["metadata"],
+                    "href": os.path.join(
+                        product_img_data_path,
+                        "T31TDH_20180101T105441_B01.json",
+                    ),
+                },
+            }
+        )
+        # update the driver after having set the assets
+        self.product.driver = self.product.get_driver()
+
+    def test_driver_set_stac_assets(self):
+        """The appropriate driver must have been set"""
+        self.assertIsInstance(self.product.driver, StacAssets)
 
     def test_driver_get_local_dataset_address_bad_band(self):
         """Driver must raise AddressNotFound if non existent band is requested"""
@@ -84,23 +97,37 @@ class TestEOProductDriverStacAssets(EODagTestCase):
         """Driver returns a good address for an existing band"""
         with self._filesystem_product() as product:
             band = "b01"
-            address = self.stac_assets_driver.get_data_address(product, band)
+            address = self.product.driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
             band = "t31tdh_20180101t124911_b01"
-            address = self.stac_assets_driver.get_data_address(product, band)
+            address = self.product.driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
             band = "T31TDH_20180101T124911_B01.jp2"
-            address = self.stac_assets_driver.get_data_address(product, band)
+            address = self.product.driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
             band = "T31TDH.*B01.*"
-            address = self.stac_assets_driver.get_data_address(product, band)
+            address = self.product.driver.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
+
+    def test_asset_get_data(self):
+        """get_data should be executable directly from asset"""
+
+        with self._filesystem_product() as product:
+            data = product.assets["T31TDH_20180101T124911_B01.jp2"].get_data(
+                crs=CRS.from_epsg(4326),
+                resolution=0.1,
+                extent=[1, 2, 3, 4],
+                resampling=Resampling.bilinear,
+            )
+            self.assertIsInstance(data, DataArray)
 
     @contextmanager
     def _filesystem_product(self):
         original = self.product.location
         try:
-            self.product.location = "file://{}".format(self.product.properties["title"])
+            self.product.location = "file:///{}".format(
+                self.product.properties["title"].strip("/")
+            )
             yield self.product
         finally:
             self.product.location = original

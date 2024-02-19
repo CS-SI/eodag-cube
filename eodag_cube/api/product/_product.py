@@ -15,8 +15,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import logging
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 import rasterio
@@ -27,8 +30,14 @@ from rasterio.vrt import WarpedVRT
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.utils import get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
+from eodag_cube.api.product._assets import AssetsDict
 
-logger = logging.getLogger("eodag.api.product")
+if TYPE_CHECKING:
+    from rasterio.enums import Resampling
+    from shapely.geometry.base import BaseGeometry
+    from xarray import DataArray
+
+logger = logging.getLogger("eodag-cube.api.product")
 
 
 class EOProduct(EOProduct_core):
@@ -47,6 +56,19 @@ class EOProduct(EOProduct_core):
     :type provider: str
     :param properties: The metadata of the product
     :type properties: dict
+    :ivar product_type: The product type
+    :vartype product_type: str
+    :ivar location: The path to the product, either remote or local if downloaded
+    :vartype location: str
+    :ivar remote_location: The remote path to the product
+    :vartype remote_location: str
+    :ivar search_kwargs: The search kwargs used by eodag to search for the product
+    :vartype search_kwargs: Any
+    :ivar geometry: The geometry of the product
+    :vartype geometry: :class:`shapely.geometry.base.BaseGeometry`
+    :ivar search_intersection: The intersection between the product's geometry
+                               and the search area.
+    :vartype search_intersection: :class:`shapely.geometry.base.BaseGeometry` or None
 
     .. note::
         The geojson spec `enforces <https://github.com/geojson/draft-geojson/pull/6>`_
@@ -56,18 +78,27 @@ class EOProduct(EOProduct_core):
         mentioned CRS.
     """
 
-    def __init__(self, *args, **kwargs):
-        super(EOProduct, self).__init__(*args, **kwargs)
+    def __init__(
+        self, provider: str, properties: Dict[str, Any], **kwargs: Any
+    ) -> None:
+        super(EOProduct, self).__init__(
+            provider=provider, properties=properties, **kwargs
+        )
+        core_assets_data = self.assets.data
+        self.assets = AssetsDict(self)
+        self.assets.update(core_assets_data)
 
     def get_data(
         self,
-        band,
-        crs=None,
-        resolution=None,
-        extent=None,
-        resampling=None,
-        **rioxr_kwargs,
-    ):
+        band: str,
+        crs: Optional[str] = None,
+        resolution: Optional[float] = None,
+        extent: Optional[
+            Union[str, Dict[str, float], List[float], BaseGeometry]
+        ] = None,
+        resampling: Optional[Resampling] = None,
+        **rioxr_kwargs: Any,
+    ) -> DataArray:
         """Retrieves all or part of the raster data abstracted by the :class:`EOProduct`
 
         :param band: The band of the dataset to retrieve (e.g.: 'B01')
@@ -92,7 +123,7 @@ class EOProduct(EOProduct_core):
         :param resampling: (optional) Warp resampling algorithm passed to :class:`rasterio.vrt.WarpedVRT`
         :type resampling: Resampling
         :param rioxr_kwargs: kwargs passed to ``rioxarray.open_rasterio()``
-        :type rioxr_kwargs: dict
+        :type rioxr_kwargs: Any
         :returns: The numeric matrix corresponding to the sub dataset or an empty
                     array if unable to get the data
         :rtype: xarray.DataArray
@@ -142,7 +173,7 @@ class EOProduct(EOProduct_core):
             warped_vrt_args["resampling"] = resampling
 
         @contextmanager
-        def pass_resource(resource, **kwargs):
+        def pass_resource(resource: Any, **kwargs: Any) -> Any:
             yield resource
 
         if warped_vrt_args:
@@ -181,14 +212,14 @@ class EOProduct(EOProduct_core):
             logger.error(e)
             return fail_value
 
-    def _get_rio_env(self, dataset_address):
+    def _get_rio_env(self, dataset_address: str) -> Dict[str, Any]:
         """Get rasterio environement variables needed for data access.
 
         :param dataset_address: address of the data to read
         :type dataset_address: str
 
         :return: The rasterio environement variables
-        :rtype: dict
+        :rtype: Dict[str, Any]
         """
         product_location_scheme = dataset_address.split("://")[0]
         if product_location_scheme == "s3" and hasattr(
@@ -205,44 +236,3 @@ class EOProduct(EOProduct_core):
             }
         else:
             return {}
-
-    def encode(self, raster, encoding="protobuf"):
-        """Encode the subset to a network-compatible format.
-        :param raster: The raster data to encode
-        :type raster: xarray.DataArray
-        :param encoding: The encoding of the export
-        :type encoding: str
-        :return: The data encoded in the specified encoding
-        :rtype: bytes
-        """
-        # If no encoding return an empty byte
-        if not encoding:
-            logger.warning("Trying to encode a raster without specifying an encoding")
-            return b""
-        strategy = getattr(self, "_{encoding}".format(**locals()), None)
-        if strategy:
-            return strategy(raster)
-        logger.error("Unknown encoding: %s", encoding)
-        return b""
-
-    def _protobuf(self, raster):
-        """Google's Protocol buffers encoding strategy.
-        :param raster: The raster to encode
-        :type raster: xarray.DataArray
-        :returns: The raster data represented by this subset in protocol buffers
-                    encoding
-        :rtype: bytes
-        """
-        from eodag_cube.api.product.protobuf import eo_product_pb2
-
-        subdataset = eo_product_pb2.EOProductSubdataset()
-        subdataset.id = self.properties["id"]
-        subdataset.producer = self.provider
-        subdataset.product_type = self.product_type
-        subdataset.platform = self.properties["platformSerialIdentifier"]
-        subdataset.sensor = self.properties["instrument"]
-        data = subdataset.data
-        data.array.extend(list(raster.values.flatten().astype(int)))
-        data.shape.extend(list(raster.values.shape))
-        data.dtype = raster.values.dtype.name
-        return subdataset.SerializeToString()

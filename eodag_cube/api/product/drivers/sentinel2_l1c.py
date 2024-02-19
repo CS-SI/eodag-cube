@@ -15,9 +15,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import os
 import re
 import warnings
+from typing import TYPE_CHECKING
 
 import boto3
 import rasterio
@@ -25,6 +28,9 @@ import rasterio
 from eodag.api.product.drivers.base import DatasetDriver
 from eodag.utils import uri_to_path
 from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressScheme
+
+if TYPE_CHECKING:
+    from eodag.api.product._product import EOProduct
 
 
 class Sentinel2L1C(DatasetDriver):
@@ -38,7 +44,7 @@ class Sentinel2L1C(DatasetDriver):
         "TCI": ("TCI",),
     }
 
-    def get_data_address(self, eo_product, band):
+    def get_data_address(self, eo_product: EOProduct, band: str) -> str:
         """Compute the address of a subdataset for a Sentinel2 L1C product.
 
         The algorithm is as follows for a product on the local filesystem:
@@ -53,8 +59,14 @@ class Sentinel2L1C(DatasetDriver):
               filesystem-like address that matches the band file pattern r'^.+_B01\\.jp2$' if band = 'B01' for
               example.
 
-        See :func:`~eodag.api.product.drivers.base.DatasetDriver.get_data_address` to get help on the formal
-        parameters.
+        :param eo_product: The product whom underlying dataset address is to be retrieved
+        :type eo_product: :class:`~eodag.api.product._product.EOProduct`
+        :param band: The band to retrieve (e.g: 'B01')
+        :type band: str
+        :returns: An address for the dataset
+        :rtype: str
+        :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
+        :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
@@ -80,7 +92,7 @@ class Sentinel2L1C(DatasetDriver):
                                     lambda f: band_file_pattern.match(f),
                                     subdataset.files,
                                 ):
-                                    return filename
+                                    return str(os.path.normpath(filename))
                 raise AddressNotFound
         if product_location_scheme == "s3":
             access_key, access_secret = eo_product.downloader_auth.authenticate()

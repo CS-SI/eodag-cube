@@ -56,7 +56,7 @@ class TestEOProduct(EODagTestCase):
     def test_get_data_local_product_ok(self):
         """A call to get_data on a product present in the local filesystem must succeed"""  # noqa
         self.eoproduct_props.update(
-            {"downloadLink": "file://{}".format(self.local_product_abspath)}
+            {"downloadLink": "file:///{}".format(self.local_product_abspath.strip("/"))}
         )
         product = EOProduct(
             self.provider, self.eoproduct_props, productType=self.product_type
@@ -187,46 +187,3 @@ class TestEOProduct(EODagTestCase):
             )
             return tuple(itertools.chain.from_iterable(((data,), returned_params)))
         return data
-
-    def test_eoproduct_encode_bad_encoding(self):
-        """EOProduct encode method must return an empty bytes if encoding is not supported or is None"""  # noqa
-        encoding = random.choice(["not_supported", None])
-        product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
-        encoded_raster = product.encode(self.raster, encoding)
-        self.assertIsInstance(encoded_raster, bytes)
-        self.assertEqual(encoded_raster, b"")
-
-    def test_eoproduct_encode_protobuf(self):
-        """Test encode method with protocol buffers encoding"""
-        # Explicitly provide encoding
-        product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
-        encoded_raster = product.encode(self.raster, encoding="protobuf")
-        self.assertIsInstance(encoded_raster, bytes)
-        self.assertNotEqual(encoded_raster, b"")
-
-    def test_eoproduct_encode_missing_platform_and_instrument(self):
-        """Protobuf encode method must raise an error if no platform and instrument are given"""  # noqa
-        self.eoproduct_props["platformSerialIdentifier"] = None
-        self.eoproduct_props["instrument"] = None
-        product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
-        self.assertRaises(TypeError, product.encode, self.raster, encoding="protobuf")
-
-        self.eoproduct_props["platformSerialIdentifier"] = None
-        self.eoproduct_props["instrument"] = "MSI"
-        product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
-        self.assertRaises(TypeError, product.encode, self.raster, encoding="protobuf")
-
-        self.eoproduct_props["platformSerialIdentifier"] = "S2A"
-        self.eoproduct_props["instrument"] = None
-        product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
-        self.assertRaises(TypeError, product.encode, self.raster, encoding="protobuf")
