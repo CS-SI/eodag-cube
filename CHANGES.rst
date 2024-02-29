@@ -1,6 +1,11 @@
 Release history
 ---------------
 
+0.4.1 (2024-02-29)
+++++++++++++++++++
+
+- Fixes s3 authentication using GDAL/rasterio environment variables (#50)
+
 0.4.0 (2024-02-19)
 ++++++++++++++++++
 

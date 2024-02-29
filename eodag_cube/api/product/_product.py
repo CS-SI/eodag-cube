@@ -223,16 +223,25 @@ class EOProduct(EOProduct_core):
         """
         product_location_scheme = dataset_address.split("://")[0]
         if product_location_scheme == "s3" and hasattr(
-            self.downloader, "get_bucket_name_and_prefix"
+            self.downloader, "get_product_bucket_name_and_prefix"
         ):
-            bucket_name, prefix = self.downloader.get_bucket_name_and_prefix(
+            bucket_name, prefix = self.downloader.get_product_bucket_name_and_prefix(
                 self, dataset_address
             )
             auth_dict = self.downloader_auth.authenticate()
-            return {
+            rio_env_dict = {
                 "session": rasterio.session.AWSSession(
                     **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
                 )
             }
+            endpoint_url = getattr(self.downloader.config, "base_uri", None)
+            if endpoint_url:
+                aws_s3_endpoint = endpoint_url.split("://")[-1]
+                rio_env_dict.update(
+                    AWS_S3_ENDPOINT=aws_s3_endpoint,
+                    AWS_HTTPS="YES",
+                    AWS_VIRTUAL_HOSTING="FALSE",
+                )
+            return rio_env_dict
         else:
             return {}
