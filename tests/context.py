@@ -29,13 +29,16 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.api.product import EOProduct
 from eodag.api.product.drivers import DRIVERS
 from eodag.api.product.drivers.base import NoDriver
+from eodag.config import PluginConfig
 from eodag_cube.api.product.drivers.generic import GenericDriver
 from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
 from eodag_cube.api.product.drivers.stac_assets import StacAssets
 from eodag.api.search_result import SearchResult
 from eodag.cli import download, eodag, list_pt, search_crunch
 from eodag.plugins.authentication.base import Authentication
+from eodag.plugins.authentication.aws_auth import AwsAuth
 from eodag.plugins.download.base import Download
+from eodag.plugins.download.aws import AwsDownload
 from eodag.plugins.search.base import Search
 from eodag.rest import server as eodag_http_server
 from eodag.rest.utils import eodag_api, get_date
