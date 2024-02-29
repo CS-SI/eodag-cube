@@ -21,15 +21,19 @@ import random
 
 import numpy as np
 import xarray as xr
+from rasterio.session import AWSSession
 
 from tests import EODagTestCase
 from tests.context import (
     DEFAULT_PROJ,
     Authentication,
+    AwsAuth,
+    AwsDownload,
     Download,
     DownloadError,
     EOProduct,
     NoDriver,
+    PluginConfig,
     Sentinel2L1C,
     UnsupportedDatasetAddressScheme,
     config,
@@ -187,3 +191,31 @@ class TestEOProduct(EODagTestCase):
             )
             return tuple(itertools.chain.from_iterable(((data,), returned_params)))
         return data
+
+    def test_get_rio_env(self):
+        """RIO env should be adapted to the provider config"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+
+        # http
+        self.assertDictEqual(product._get_rio_env("https://path/to/asset"), {})
+
+        # aws s3
+        product.register_downloader(
+            AwsDownload("foo", PluginConfig()), AwsAuth("foo", PluginConfig())
+        )
+        product.downloader._get_authenticated_objects_unsigned = mock.MagicMock()
+        product.downloader._get_authenticated_objects_unsigned.__name__ = "mocked"
+        rio_env = product._get_rio_env("s3://path/to/asset")
+        self.assertEqual(len(rio_env), 1)
+        self.assertIsInstance(rio_env["session"], AWSSession)
+
+        # aws s3 with custom endpoint
+        product.downloader.config.base_uri = "https://some.where"
+        rio_env = product._get_rio_env("s3://path/to/asset")
+        self.assertEqual(len(rio_env), 4)
+        self.assertIsInstance(rio_env["session"], AWSSession)
+        self.assertEqual(rio_env["AWS_HTTPS"], "YES")
+        self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
+        self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
