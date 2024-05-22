@@ -17,6 +17,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -25,6 +26,8 @@ from eodag.utils.exceptions import AddressNotFound
 
 if TYPE_CHECKING:
     from eodag.api.product._product import EOProduct
+
+logger = logging.getLogger("eodag-cube.driver.stac_assets")
 
 
 class StacAssets(DatasetDriver):
@@ -42,47 +45,23 @@ class StacAssets(DatasetDriver):
         :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
         :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
-        error_message = ""
-
-        # try using exact
-        p = re.compile(rf"^{band}$", re.IGNORECASE)
-        matching_keys = [
-            s
-            for s in eo_product.assets.keys()
+        p = re.compile(rf"{band}", re.IGNORECASE)
+        matching_keys = []
+        for s in eo_product.assets.keys():
             if (
                 (
                     "roles" in eo_product.assets[s]
                     and "data" in eo_product.assets[s]["roles"]
                 )
                 or ("roles" not in eo_product.assets[s])
-            )
-            and p.match(s)
-        ]
+            ) and p.search(s):
+                matching_keys.append(s)
+                logger.debug(f"Matching asset key: {s}")
+
         if len(matching_keys) == 1:
             return str(eo_product.assets[matching_keys[0]]["href"])
-        else:
-            error_message += (
-                rf"{len(matching_keys)} assets keys found matching {p} AND "
-            )
 
-            # try to find keys containing given band
-            p = re.compile(rf"^.*{band}.*$", re.IGNORECASE)
-            matching_keys = [
-                s
-                for s in eo_product.assets.keys()
-                if (
-                    (
-                        "roles" in eo_product.assets[s]
-                        and "data" in eo_product.assets[s]["roles"]
-                    )
-                    or ("roles" not in eo_product.assets[s])
-                )
-                and p.match(s)
-            ]
-            if len(matching_keys) == 1:
-                return str(eo_product.assets[matching_keys[0]]["href"])
-            else:
-                raise AddressNotFound(
-                    rf"Please adapt given band parameter ('{band}') to match only one asset: {error_message}"
-                    rf"{len(matching_keys)} assets keys found matching {p}"
-                )
+        raise AddressNotFound(
+            rf"Please adapt given band parameter ('{band}') to match only one asset: "
+            rf"{len(matching_keys)} assets keys found matching {p}"
+        )
