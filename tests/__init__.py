@@ -17,15 +17,10 @@
 # limitations under the License.
 
 import os
-import random
 import shutil
 import unittest
-from collections import OrderedDict, namedtuple
-from io import StringIO
 from unittest import mock  # PY3
 
-from owslib.etree import etree
-from owslib.ows import ExceptionReport
 from shapely import wkt
 
 from eodag.api.product.metadata_mapping import DEFAULT_METADATA_MAPPING
@@ -182,98 +177,3 @@ class EODagTestCase(unittest.TestCase):
 
                 coords[j] = list(pair)
         return shapely_mapping
-
-    def compute_csw_records(self, mock_catalog, raise_error_for="", *args, **kwargs):
-        if raise_error_for:
-            for constraint in kwargs["constraints"]:
-                if constraint.propertyname == raise_error_for:
-                    exception_report = etree.parse(
-                        StringIO(
-                            '<ExceptionReport xmlns="http://www.opengis.net/ows/1.1" '
-                            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation='  # noqa
-                            '"http://schemas.opengis.net/ows/1.1.0/owsExceptionReport.xsd" version="1.0.0" language="en">'  # noqa
-                            '<Exception exceptionCode="NoApplicableCode"><ExceptionText>Unknown exception</ExceptionText>'  # noqa
-                            "</Exception></ExceptionReport>"
-                        )
-                    )
-                    raise ExceptionReport(exception_report)
-        bbox_wgs84 = random.choice(
-            [
-                None,
-                (
-                    self.footprint["lonmin"],
-                    self.footprint["latmin"],
-                    self.footprint["lonmax"],
-                    self.footprint["latmax"],
-                ),
-            ]
-        )
-        Record = namedtuple(
-            "CswRecord",
-            [
-                "identifier",
-                "title",
-                "creator",
-                "publisher",
-                "abstract",
-                "subjects",
-                "date",
-                "references",
-                "bbox_wgs84",
-                "bbox",
-                "xml",
-            ],
-        )
-        BBox = namedtuple("BBox", ["minx", "miny", "maxx", "maxy", "crs"])
-        Crs = namedtuple("Crs", ["code", "id"])
-        mock_catalog.records = OrderedDict(
-            {
-                "id ent ifier": Record(
-                    identifier="id ent ifier",
-                    title="MyRecord",
-                    creator="eodagUnitTests",
-                    publisher="eodagUnitTests",
-                    abstract="A dumb CSW record for testing purposes",
-                    subjects=[],
-                    date="",
-                    references=[
-                        {
-                            "scheme": "WWW:DOWNLOAD-1.0-http--download",
-                            "url": "http://www.url.eu/dl",
-                        }
-                    ],
-                    bbox_wgs84=bbox_wgs84,
-                    bbox=BBox(
-                        minx=self.footprint["lonmin"],
-                        miny=self.footprint["latmin"],
-                        maxx=self.footprint["lonmax"],
-                        maxy=self.footprint["latmax"],
-                        crs=Crs(code=4326, id="EPSG"),
-                    ),
-                    xml="""
-                    <csw:Record xmlns:csw="http://www.opengis.net/cat/csw/2.0.2"
-                        xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dct="http://purl.org/dc/terms/"    # noqa
-                        xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gml="http://www.opengis.net/gml"    # noqa
-                        xmlns:ows="http://www.opengis.net/ows" xmlns:xs="http://www.w3.org/2001/XMLSchema"    # noqa
-                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-                        <dc:identifier>urn:x-gs:resource:localhost::52</dc:identifier>
-                        <dc:title>S2 mosaic on Madrid</dc:title>
-                        <dc:format/>
-                        <dct:references scheme="WWW:LINK-1.0-http--link">
-                            http://localhost:8000/admin/storm_csw/resource/52/change/
-                        </dct:references>
-                        <dct:modified>2017-05-05 13:02:35.548758+00:00</dct:modified>
-                        <dct:abstract/>
-                        <dc:date>2017-05-05 13:02:35.139807+00:00</dc:date>
-                        <dc:creator> </dc:creator>
-                        <dc:coverage/>
-                        <ows:BoundingBox dimensions="2" crs="EPSG">
-                        <ows:LowerCorner>40.405012373 -3.70433905592</ows:LowerCorner>
-                        <ows:UpperCorner>40.420696583 -3.67011406889</ows:UpperCorner>
-                        </ows:BoundingBox>
-                    </csw:Record>
-                """,
-                )
-            }
-        )
-        return mock.DEFAULT
