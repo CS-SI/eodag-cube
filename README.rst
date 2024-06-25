@@ -42,7 +42,7 @@ Example usage for interacting with the api in your Python code:
     product_type = 'S2_MSI_L2A_COG'
     footprint = {'lonmin': 1, 'latmin': 43.5, 'lonmax': 2, 'latmax': 44}
     start, end = '2020-06-04', '2020-06-05'
-    search_results, _ = dag.search(productType=product_type, geom=footprint, start=start, end=end)
+    search_results = dag.search(productType=product_type, geom=footprint, start=start, end=end)
     data = search_results[0].get_data(
         crs=CRS.from_epsg(4326),
         resolution=0.0006,
