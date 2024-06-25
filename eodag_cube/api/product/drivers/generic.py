@@ -17,6 +17,8 @@
 # limitations under the License.
 from __future__ import annotations
 
+import logging
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -28,6 +30,8 @@ from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressSch
 
 if TYPE_CHECKING:
     from eodag.api.product._product import EOProduct
+
+logger = logging.getLogger("eodag-cube.driver.generic")
 
 
 class GenericDriver(DatasetDriver):
@@ -48,16 +52,27 @@ class GenericDriver(DatasetDriver):
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
 
-            filenames = Path(uri_to_path(eo_product.location)).glob(f"**/*{band}*")
+            p = re.compile(rf"{band}", re.IGNORECASE)
+            matching_files = []
+            for f_path in Path(uri_to_path(eo_product.location)).glob("**/*"):
+                f_str = str(f_path.resolve())
+                if p.search(f_str):
+                    try:
+                        # files readable by rasterio
+                        rasterio.drivers.driver_from_extension(f_path)
+                        matching_files.append(f_str)
+                        logger.debug(f"Matching band: {f_str}")
+                    except ValueError:
+                        pass
 
-            for filename in filenames:
-                try:
-                    # return the first file readable by rasterio
-                    rasterio.drivers.driver_from_extension(filename)
-                    return str(filename.resolve())
-                except ValueError:
-                    pass
-            raise AddressNotFound
+            if len(matching_files) == 1:
+                return matching_files[0]
+
+            raise AddressNotFound(
+                rf"Please adapt given band parameter ('{band}') to match only file: "
+                rf"{len(matching_files)} files found matching {p}"
+            )
+
         raise UnsupportedDatasetAddressScheme(
             "eo product {} is accessible through a location scheme that is not yet "
             "supported by eodag: {}".format(eo_product, product_location_scheme)

@@ -1,6 +1,14 @@
 Release history
 ---------------
 
+0.5.0b1 (2024-06-25)
+++++++++++++++++++++
+
+- Adapt to `eodag v3` search API (#59)
+- Drivers harmonized regex address retrieval mechanism (#56)
+- Fixed `Asset` and `AssetsDict` import (#54)
+- Tests: context imports cleanup (#53), removed unused method (#57)
+
 0.4.1 (2024-02-29)
 ++++++++++++++++++
 
