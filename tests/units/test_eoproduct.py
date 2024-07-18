@@ -219,3 +219,11 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(rio_env["AWS_HTTPS"], "YES")
         self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
         self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
+
+        # aws s3 with custom endpoint and band in zip
+        rio_env = product._get_rio_env("zip+s3://path/to/asset.zip!band.tiff")
+        self.assertEqual(len(rio_env), 4)
+        self.assertIsInstance(rio_env["session"], AWSSession)
+        self.assertEqual(rio_env["AWS_HTTPS"], "YES")
+        self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
+        self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
