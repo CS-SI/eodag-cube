@@ -222,7 +222,7 @@ class EOProduct(EOProduct_core):
         :rtype: Dict[str, Any]
         """
         product_location_scheme = dataset_address.split("://")[0]
-        if product_location_scheme == "s3" and hasattr(
+        if "s3" in product_location_scheme and hasattr(
             self.downloader, "get_product_bucket_name_and_prefix"
         ):
             bucket_name, prefix = self.downloader.get_product_bucket_name_and_prefix(
