@@ -95,8 +95,9 @@ class Asset(Asset_core):
                     array if unable to get the data
         :rtype: xarray.DataArray
         """
+        band_pattern = rf"^{self.key}$"
         return self.product.get_data(
-            band=self.key,
+            band=band_pattern,
             crs=crs,
             resolution=resolution,
             extent=extent,
