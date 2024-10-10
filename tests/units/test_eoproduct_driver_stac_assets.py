@@ -25,6 +25,7 @@ from xarray import DataArray
 
 from tests import TEST_RESOURCES_PATH, EODagTestCase
 from tests.context import AddressNotFound, EOProduct, StacAssets
+from tests.utils import mock
 
 
 class TestEOProductDriverStacAssets(EODagTestCase):
@@ -120,6 +121,20 @@ class TestEOProductDriverStacAssets(EODagTestCase):
                 resampling=Resampling.bilinear,
             )
             self.assertIsInstance(data, DataArray)
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_data", autospec=True)
+    def test_asset_get_data_pattern(self, mock_get_data):
+        """get_data on asset should use a pattern to match exactly its band"""
+
+        self.product.assets["T31TDH_20180101T124911_B01.jp2"].get_data()
+        mock_get_data.assert_called_once_with(
+            self.product,
+            band=r"^T31TDH_20180101T124911_B01.jp2$",
+            crs=None,
+            resolution=None,
+            extent=None,
+            resampling=None,
+        )
 
     @contextmanager
     def _filesystem_product(self):
