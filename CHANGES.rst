@@ -1,6 +1,13 @@
 Release history
 ---------------
 
+0.5.0 (2024-10-10)
+++++++++++++++++++
+
+- Support zipped bands in s3 (#62)
+- Regex fix in band selection using `StacAssets` driver (#61)
+- [0.5.0b1] Adapt to `eodag v3` search API (#59)
+
 0.5.0b1 (2024-06-25)
 ++++++++++++++++++++
 
