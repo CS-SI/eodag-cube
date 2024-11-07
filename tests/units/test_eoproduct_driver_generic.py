@@ -19,22 +19,18 @@
 import os
 from contextlib import contextmanager
 
-from tests import TEST_RESOURCES_PATH, EODagTestCase
+from tests import (
+    TEST_GRIB_FILE_PATH,
+    TEST_GRIB_FILENAME,
+    TEST_GRIB_PRODUCT_PATH,
+    TEST_RESOURCES_PATH,
+    EODagTestCase,
+)
 from tests.context import (
     AddressNotFound,
     EOProduct,
     GenericDriver,
     UnsupportedDatasetAddressScheme,
-)
-
-TEST_GRIB_PRODUCT = (
-    "CAMS_EAC4_20210101_20210102_4d792734017419d1719b53f4d5b5d4d6888641de"
-)
-TEST_GRIB_FILENAME = f"{TEST_GRIB_PRODUCT}.grib"
-TEST_GRIB_PRODUCT_PATH = os.path.join(
-    TEST_RESOURCES_PATH,
-    "products",
-    TEST_GRIB_PRODUCT,
 )
 
 
@@ -74,8 +70,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
 
             address = self.product.driver.get_data_address(product, TEST_GRIB_FILENAME)
 
-            grib_path = os.path.join(TEST_GRIB_PRODUCT_PATH, TEST_GRIB_FILENAME)
-            self.assertEqual(address, grib_path)
+            self.assertEqual(address, TEST_GRIB_FILE_PATH)
 
     def test_driver_get_http_remote_dataset_address_fail(self):
         """Driver must raise UnsupportedDatasetAddressScheme if location scheme is http or https"""

@@ -29,6 +29,8 @@ setup(
         "rasterio",
         "xarray",
         "rioxarray",
+        "netcdf4",
+        "cfgrib",
     ],
     extras_require={
         "dev": [

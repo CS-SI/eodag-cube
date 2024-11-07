@@ -23,7 +23,7 @@ import numpy as np
 import xarray as xr
 from rasterio.session import AWSSession
 
-from tests import EODagTestCase
+from tests import TEST_GRIB_FILE_PATH, TEST_GRIB_FILENAME, EODagTestCase
 from tests.context import (
     DEFAULT_PROJ,
     Authentication,
@@ -74,6 +74,17 @@ class TestEOProduct(EODagTestCase):
         product.driver.get_data_address.assert_called_with(product, band)
         self.assertIsInstance(data, xr.DataArray)
         self.assertNotEqual(data.values.size, 0)
+
+    def test_get_data_local_grib_product_ok(self):
+        """A call to get_data on a local product in GRIB format must succeed"""  # noqa
+        product = EOProduct(self.provider, self.eoproduct_props)
+        product.driver = mock.MagicMock(spec_set=NoDriver())
+        product.driver.get_data_address.return_value = TEST_GRIB_FILE_PATH
+        data = product.get_data(band=TEST_GRIB_FILENAME)
+        self.assertEqual(product.driver.get_data_address.call_count, 1)
+
+        self.assertIsInstance(data, xr.DataArray)
+        self.assertEqual(data.attrs["GRIB_COMMENT"], "Temperature [C]")
 
     def test_get_data_download_on_unsupported_dataset_address_scheme_error(self):
         """If a product is not on the local filesystem, it must download itself before returning the data"""  # noqa
