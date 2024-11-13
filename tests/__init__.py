@@ -32,6 +32,17 @@ TEST_RESOURCES_PATH = jp(dirn(__file__), "resources")
 RESOURCES_PATH = jp(dirn(__file__), "..", "eodag", "resources")
 TESTS_DOWNLOAD_PATH = "/tmp/eodag_tests"
 
+TEST_GRIB_PRODUCT = (
+    "CAMS_EAC4_20210101_20210102_4d792734017419d1719b53f4d5b5d4d6888641de"
+)
+TEST_GRIB_FILENAME = f"{TEST_GRIB_PRODUCT}.grib"
+TEST_GRIB_PRODUCT_PATH = os.path.join(
+    TEST_RESOURCES_PATH,
+    "products",
+    TEST_GRIB_PRODUCT,
+)
+TEST_GRIB_FILE_PATH = os.path.join(TEST_GRIB_PRODUCT_PATH, TEST_GRIB_FILENAME)
+
 
 class EODagTestCase(unittest.TestCase):
     def setUp(self):
