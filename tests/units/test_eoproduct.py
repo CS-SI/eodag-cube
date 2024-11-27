@@ -223,7 +223,7 @@ class TestEOProduct(EODagTestCase):
         self.assertIsInstance(rio_env["session"], AWSSession)
 
         # aws s3 with custom endpoint
-        product.downloader.config.base_uri = "https://some.where"
+        product.downloader.config.s3_endpoint = "https://some.where"
         rio_env = product._get_rio_env("s3://path/to/asset")
         self.assertEqual(len(rio_env), 4)
         self.assertIsInstance(rio_env["session"], AWSSession)

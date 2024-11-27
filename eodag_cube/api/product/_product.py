@@ -234,7 +234,7 @@ class EOProduct(EOProduct_core):
                     **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
                 )
             }
-            endpoint_url = getattr(self.downloader.config, "base_uri", None)
+            endpoint_url = getattr(self.downloader.config, "s3_endpoint", None)
             if endpoint_url:
                 aws_s3_endpoint = endpoint_url.split("://")[-1]
                 rio_env_dict.update(
