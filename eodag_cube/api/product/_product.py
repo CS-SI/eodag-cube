@@ -29,7 +29,11 @@ from rasterio.vrt import WarpedVRT
 
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.utils import get_geometry_from_various
-from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
+from eodag.utils.exceptions import (
+    AddressNotFound,
+    DownloadError,
+    UnsupportedDatasetAddressScheme,
+)
 from eodag_cube.api.product._assets import AssetsDict
 
 if TYPE_CHECKING:
@@ -87,6 +91,23 @@ class EOProduct(EOProduct_core):
         core_assets_data = self.assets.data
         self.assets = AssetsDict(self)
         self.assets.update(core_assets_data)
+
+    def to_xarray(self) -> xr.Dataset:
+        """
+        :returns: xarray Dataset containing DataArrays correponding to assets
+                  of the product.
+        :rtype: xarray.Dataset
+        """
+        ds = xr.Dataset()
+
+        for key in self.assets:
+            try:
+                ds[key] = self.get_data(key)
+            except AddressNotFound:
+                # Skip unsupported files such as XML
+                logger.debug("Asset with key '%s' not found", key)
+
+        return ds
 
     def get_data(
         self,
