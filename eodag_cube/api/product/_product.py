@@ -99,6 +99,7 @@ class EOProduct(EOProduct_core):
         :rtype: xarray.Dataset
         """
         ds = xr.Dataset()
+        ds.attrs = self.properties
 
         for key in self.assets:
             try:
