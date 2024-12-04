@@ -17,13 +17,24 @@
 # limitations under the License.
 
 import itertools
+import os
 import random
+import shutil
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import xarray as xr
 from rasterio.session import AWSSession
 
-from tests import TEST_GRIB_FILE_PATH, TEST_GRIB_FILENAME, EODagTestCase
+from eodag_cube.api.product import XarrayDict
+from tests import (
+    TEST_GRIB_FILE_PATH,
+    TEST_GRIB_FILENAME,
+    TEST_GRIB_PRODUCT_PATH,
+    TEST_RESOURCES_PATH,
+    EODagTestCase,
+)
 from tests.context import (
     DEFAULT_PROJ,
     Authentication,
@@ -238,3 +249,38 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(rio_env["AWS_HTTPS"], "YES")
         self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
         self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
+
+    def populate_directory_with_heterogeneous_files(self, destination):
+        """
+        Put various files in the destination directory:
+        - a grib file
+        - an .idx file that often comes with grib files
+        - a JPEG2000 file
+        - an XML file
+        """
+        # Copy all files from a grib product
+        shutil.copytree(TEST_GRIB_PRODUCT_PATH, destination, dirs_exist_ok=True)
+
+        # Copy files from an S2A product
+        s2a_path = os.path.join(
+            TEST_RESOURCES_PATH,
+            "products",
+            "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
+        )
+        shutil.copytree(s2a_path, destination, dirs_exist_ok=True)
+
+    def test_build_xarray_dict(self):
+        with TemporaryDirectory(prefix="eodag-cube-tests") as tmp_dir:
+            product = EOProduct(
+                self.provider, self.eoproduct_props, productType=self.product_type
+            )
+            product.location = f"file://{tmp_dir}"
+            self.populate_directory_with_heterogeneous_files(tmp_dir)
+
+            xarray_dict = product._build_xarray_dict()
+
+            self.assertIsInstance(xarray_dict, XarrayDict)
+            self.assertEqual(len(xarray_dict), 2)
+            for key, value in xarray_dict.items():
+                self.assertIn(Path(key).suffix, {".grib", ".jp2"})
+                self.assertIsInstance(value, xr.Dataset)

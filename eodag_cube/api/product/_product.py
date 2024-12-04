@@ -18,8 +18,11 @@
 from __future__ import annotations
 
 import logging
+import os
+from collections import UserDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 import numpy as np
 import rasterio
@@ -38,6 +41,12 @@ if TYPE_CHECKING:
     from xarray import DataArray
 
 logger = logging.getLogger("eodag-cube.api.product")
+
+
+class XarrayDict(UserDict[str, xr.Dataset]):
+    """
+    Dictionnary which keys are file paths and values are xarray Datasets.
+    """
 
 
 class EOProduct(EOProduct_core):
@@ -245,3 +254,25 @@ class EOProduct(EOProduct_core):
             return rio_env_dict
         else:
             return {}
+
+    def _build_xarray_dict(self, **kwargs):
+        result = XarrayDict()
+        product_path = urlparse(self.location).path
+        for root, _dirs, filenames in os.walk(product_path):
+            for filename in filenames:
+                filepath = os.path.join(root, filename)
+                try:
+                    ds = xr.open_dataset(filepath, **kwargs)
+                    result[filepath] = ds
+                except ValueError as exc:
+                    logger.debug("Cannot open %s with xarray: %s", filepath, exc)
+        return result
+
+    def to_xarray(self, **kwargs) -> XarrayDict:
+        """
+        Return a dictionnary which keys are file paths and values are xarray Datasets.
+
+        Any keyword arguments passed will be forwarded to xarray.open_dataset.
+        """
+        self.download()
+        return self._build_xarray_dict(**kwargs)
