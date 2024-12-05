@@ -19,10 +19,11 @@ from __future__ import annotations
 
 import logging
 import os
+import urllib.parse
+import urllib.request
 from collections import UserDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
-from urllib.parse import urlparse
 
 import numpy as np
 import rasterio
@@ -257,7 +258,8 @@ class EOProduct(EOProduct_core):
 
     def _build_xarray_dict(self, **kwargs):
         result = XarrayDict()
-        product_path = urlparse(self.location).path
+        url_path = urllib.parse.urlparse(self.location).path
+        product_path = urllib.request.url2pathname(url_path)
         for root, _dirs, filenames in os.walk(product_path):
             for filename in filenames:
                 filepath = os.path.join(root, filename)

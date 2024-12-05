@@ -20,6 +20,7 @@ import itertools
 import os
 import random
 import shutil
+import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -277,7 +278,7 @@ class TestEOProduct(EODagTestCase):
             product = EOProduct(
                 self.provider, self.eoproduct_props, productType=self.product_type
             )
-            product.location = f"file://{tmp_dir}"
+            product.location = "file:" + urllib.request.pathname2url(tmp_dir)
             self.populate_directory_with_heterogeneous_files(tmp_dir)
 
             xarray_dict = product._build_xarray_dict()
@@ -287,3 +288,6 @@ class TestEOProduct(EODagTestCase):
             for key, value in xarray_dict.items():
                 self.assertIn(Path(key).suffix, {".nc", ".jp2"})
                 self.assertIsInstance(value, xr.Dataset)
+
+            for ds in xarray_dict.values():
+                ds.close()
