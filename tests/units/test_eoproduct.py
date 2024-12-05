@@ -31,7 +31,6 @@ from eodag_cube.api.product import XarrayDict
 from tests import (
     TEST_GRIB_FILE_PATH,
     TEST_GRIB_FILENAME,
-    TEST_GRIB_PRODUCT_PATH,
     TEST_RESOURCES_PATH,
     EODagTestCase,
 )
@@ -253,13 +252,17 @@ class TestEOProduct(EODagTestCase):
     def populate_directory_with_heterogeneous_files(self, destination):
         """
         Put various files in the destination directory:
-        - a grib file
-        - an .idx file that often comes with grib files
+        - a NetCDF file
         - a JPEG2000 file
         - an XML file
         """
         # Copy all files from a grib product
-        shutil.copytree(TEST_GRIB_PRODUCT_PATH, destination, dirs_exist_ok=True)
+        cams_air_quality_product_path = os.path.join(
+            TEST_RESOURCES_PATH,
+            "products",
+            "cams-europe-air-quality-forecasts",
+        )
+        shutil.copytree(cams_air_quality_product_path, destination, dirs_exist_ok=True)
 
         # Copy files from an S2A product
         s2a_path = os.path.join(
@@ -282,5 +285,5 @@ class TestEOProduct(EODagTestCase):
             self.assertIsInstance(xarray_dict, XarrayDict)
             self.assertEqual(len(xarray_dict), 2)
             for key, value in xarray_dict.items():
-                self.assertIn(Path(key).suffix, {".grib", ".jp2"})
+                self.assertIn(Path(key).suffix, {".nc", ".jp2"})
                 self.assertIsInstance(value, xr.Dataset)
