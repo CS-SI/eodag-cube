@@ -49,6 +49,26 @@ class XarrayDict(UserDict[str, xr.Dataset]):
     Dictionnary which keys are file paths and values are xarray Datasets.
     """
 
+    def _format_dims(self, ds):
+        return ", ".join(f"{key}: {value}" for key, value in ds.sizes.items())
+
+    def _repr_html_(self):
+        title = self.__class__.__name__
+        count = len(self)
+        header = f"{title} ({count})"
+        header_underline = "-" * len(header)
+
+        lines = ["<pre>", header, header_underline]
+
+        for key, ds in self.items():
+            formatted_dims = self._format_dims(ds)
+            line = f"> {key} : xarray.Dataset ({formatted_dims})"
+            lines.append(line)
+
+        lines.append("</pre>")
+
+        return "\n".join(lines)
+
 
 class EOProduct(EOProduct_core):
     """A wrapper around an Earth Observation Product originating from a search.
