@@ -24,6 +24,7 @@ import xarray as xr
 
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
+from eodag.utils import _deprecated
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 
 if TYPE_CHECKING:
@@ -65,6 +66,7 @@ class Asset(Asset_core):
     :type kwargs: Any
     """
 
+    @_deprecated("Use to_xarray instead")
     def get_data(
         self,
         crs: Optional[str] = None,

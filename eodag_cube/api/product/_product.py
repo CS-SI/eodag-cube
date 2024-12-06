@@ -32,7 +32,7 @@ import xarray as xr
 from rasterio.vrt import WarpedVRT
 
 from eodag.api.product._product import EOProduct as EOProduct_core
-from eodag.utils import get_geometry_from_various
+from eodag.utils import _deprecated, get_geometry_from_various
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 from eodag_cube.api.product._assets import AssetsDict
 
@@ -118,6 +118,7 @@ class EOProduct(EOProduct_core):
         self.assets = AssetsDict(self)
         self.assets.update(core_assets_data)
 
+    @_deprecated("Use to_xarray instead")
     def get_data(
         self,
         band: str,
