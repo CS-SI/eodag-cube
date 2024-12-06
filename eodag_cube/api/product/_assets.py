@@ -17,15 +17,22 @@
 # limitations under the License.
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
+import xarray as xr
 
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
+from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 
 if TYPE_CHECKING:
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
+
+
+logger = logging.getLogger("eodag-cube.api.product")
 
 
 class AssetsDict(AssetsDict_core):
@@ -66,6 +73,7 @@ class Asset(Asset_core):
             Union[str, Dict[str, float], List[float], BaseGeometry]
         ] = None,
         resampling: Optional[Resampling] = None,
+        clip_reproject=True,
         **rioxr_kwargs: Any,
     ) -> DataArray:
         """Retrieves asset raster data abstracted by the :class:`EOProduct`
@@ -104,3 +112,47 @@ class Asset(Asset_core):
             resampling=resampling,
             **rioxr_kwargs,
         )
+
+    def to_xarray(self, **kwargs):
+        """
+        Return asset as an xarray Dataset.
+
+        Any keyword arguments passed will be forwarded to xarray.open_dataset.
+        """
+        try:
+            logger.debug("Getting data address")
+            dataset_address = self.product.driver.get_data_address(
+                self.product, self.key
+            )
+        except UnsupportedDatasetAddressScheme:
+            logger.warning(
+                "Eodag does not support getting data from distant sources by now. "
+                "Falling back to first downloading the product and then getting the "
+                "data..."
+            )
+            try:
+                self.product.download(extract=True)
+            except (RuntimeError, DownloadError) as exc:
+                import traceback
+
+                logger.warning(
+                    "Error while trying to download the product:\n %s",
+                    traceback.format_exc(),
+                )
+                logger.warning(
+                    "There might be no download plugin registered for this EO product. "
+                    "Try performing: product.register_downloader(download_plugin, "
+                    "auth_plugin) before trying to call product.get_data(...)"
+                )
+                raise exc
+            dataset_address = self.driver.get_data_address(self, self.key)
+
+        auth_info = self.product._get_rio_env(dataset_address)
+
+        logger.debug(f"Getting data from {dataset_address}")
+        try:
+            ds = xr.open_dataset(dataset_address, backend_kwargs=auth_info, **kwargs)
+            return ds
+        except Exception as e:
+            logger.error(e)
+            raise e
