@@ -17,4 +17,4 @@
 # limitations under the License.
 """EODAG product package"""
 from ._assets import Asset, AssetsDict  # noqa
-from ._product import EOProduct, XarrayDict  # noqa
+from ._product import EOProduct  # noqa

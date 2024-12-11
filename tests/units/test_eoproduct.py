@@ -28,7 +28,7 @@ import numpy as np
 import xarray as xr
 from rasterio.session import AWSSession
 
-from eodag_cube.api.product import XarrayDict
+from eodag_cube.types import XarrayDict
 from tests import (
     TEST_GRIB_FILE_PATH,
     TEST_GRIB_FILENAME,
