@@ -15,6 +15,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""EODAG-Cube types package"""
+
 from __future__ import annotations
 
 import logging
@@ -34,20 +36,34 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
     def _format_dims(self, ds):
         return ", ".join(f"{key}: {value}" for key, value in ds.sizes.items())
 
-    def _repr_html_(self):
-        title = self.__class__.__name__
-        count = len(self)
-        header = f"{title} ({count})"
-        header_underline = "-" * len(header)
+    def _repr_html_(self, embedded: bool = False) -> str:
 
-        lines = ["<pre>", header, header_underline]
-
-        for key, ds in self.items():
-            formatted_dims = self._format_dims(ds)
-            line = f"> {key} : xarray.Dataset ({formatted_dims})"
-            lines.append(line)
-
-        lines.append("</pre>")
-
-        return "\n".join(lines)
-
+        thead = (
+            f"""<thead><tr><td style='text-align: left; color: grey;'>
+                {type(self).__name__}&ensp;({len(self)})
+            """
+            + "</td></tr></thead>"
+            if not embedded
+            else ""
+        )
+        tr_style = "style='background-color: transparent;'" if embedded else ""
+        return (
+            f"<table>{thead}<tbody>"
+            + "".join(
+                [
+                    f"""<tr {tr_style}><td style='text-align: left;'>
+                        <details><summary style='color: grey;'>
+                        <span style='color: black'>'{k}'</span>:&ensp;
+                        {str(v).split("\n")[0].replace("<", "").replace(
+                         ">",
+                         f"&ensp;<span style='color: black'>({self._format_dims(v)})</span>&ensp;")}
+                    </summary>
+                        {v._repr_html_()}
+                    </details>
+                    </td></tr>
+                    """
+                    for k, v in self.items()
+                ]
+            )
+            + "</tbody></table>"
+        )

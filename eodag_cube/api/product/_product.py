@@ -17,17 +17,13 @@
 # limitations under the License.
 from __future__ import annotations
 
-import concurrent.futures
-import glob
 import logging
-import os
-import urllib.parse
-import urllib.request
-from collections import UserDict
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, Mapping
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union
+from urllib.parse import urlparse
 
+import concurrent.futures
 import fsspec
 import numpy as np
 import rasterio
@@ -35,15 +31,20 @@ import rioxarray
 import xarray as xr
 from rasterio.vrt import WarpedVRT
 from requests import PreparedRequest
-from urllib.parse import urlparse
 
 from eodag.api.product._product import EOProduct as EOProduct_core
-from eodag.api.product.metadata_mapping import NOT_AVAILABLE, OFFLINE_STATUS
-from eodag.utils import DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT, USER_AGENT, _deprecated, get_geometry_from_various
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS
+from eodag.utils import (
+    DEFAULT_DOWNLOAD_TIMEOUT,
+    DEFAULT_DOWNLOAD_WAIT,
+    USER_AGENT,
+    _deprecated,
+    get_geometry_from_various,
+)
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
-from eodag_cube.types import XarrayDict
 from eodag_cube.api.product._assets import AssetsDict
-from eodag_cube.utils import try_open_dataset, build_local_xarray_dict
+from eodag_cube.types import XarrayDict
+from eodag_cube.utils import build_local_xarray_dict, try_open_dataset
 
 if TYPE_CHECKING:
     from io import IOBase
@@ -261,30 +262,39 @@ class EOProduct(EOProduct_core):
             return rio_env_dict
         else:
             return {}
-        
-    def _get_storage_options(self, asset_key: Optional[str] = None, wait: float = DEFAULT_DOWNLOAD_WAIT, timeout: float = DEFAULT_DOWNLOAD_TIMEOUT) -> Dict[str, Any]:
+
+    def _get_storage_options(
+        self,
+        asset_key: Optional[str] = None,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    ) -> Dict[str, Any]:
         """
         Get fsspec storage_options keyword arguments
         """
-        auth = self.downloader_auth.authenticate()
-        
+        auth = self.downloader_auth.authenticate() if self.downloader_auth else None
+
         # order if product is offline
-        if self.properties["storageStatus"] == OFFLINE_STATUS and hasattr(self.downloader, "order"):
+        if self.properties["storageStatus"] == OFFLINE_STATUS and hasattr(
+            self.downloader, "order"
+        ):
             self.downloader.order(self, auth, wait=wait, timeout=timeout)
-            
+
         # default url and headers
         try:
             url = self.assets[asset_key]["href"] if asset_key else self.location
         except KeyError as e:
             raise ValueError(f"{asset_key} not found in {self} assets") from e
         headers = {**USER_AGENT}
-        
+
         if isinstance(auth, dict):
             auth_kwargs = dict()
             # AwsAuth
             s3_endpoint = getattr(self.downloader.config, "s3_endpoint", None)
             if s3_endpoint is not None:
-                auth_kwargs["client_kwargs"] = {"endpoint_url": self.downloader.config.s3_endpoint}
+                auth_kwargs["client_kwargs"] = {
+                    "endpoint_url": self.downloader.config.s3_endpoint
+                }
             if "aws_access_key_id" in auth:
                 auth_kwargs["key"] = auth["aws_access_key_id"]
             if "aws_secret_access_key" in auth:
@@ -297,14 +307,18 @@ class EOProduct(EOProduct_core):
         req = PreparedRequest()
         req.url = url
         req.headers = headers
-        
-        auth_req = auth(req)
-        
+
+        auth_req = auth(req) if auth else req
+
         return {"path": auth_req.url, "headers": auth_req.headers}
-    
-    def get_fsspec_file(self, asset_key: Optional[str] = None, wait: float = DEFAULT_DOWNLOAD_WAIT, timeout: float = DEFAULT_DOWNLOAD_TIMEOUT) -> IOBase:
-        """
-        """
+
+    def get_fsspec_file(
+        self,
+        asset_key: Optional[str] = None,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    ) -> IOBase:
+        """Open data using fsspec"""
         storage_options = self._get_storage_options(asset_key, wait, timeout)
 
         path = storage_options.pop("path", None)
@@ -316,13 +330,24 @@ class EOProduct(EOProduct_core):
         fs = fsspec.filesystem(protocol, **storage_options)
         return fs.open(path=path)
 
-
-    def to_xarray(self, asset_key: Optional[str] = None, wait: float = DEFAULT_DOWNLOAD_WAIT, timeout: float = DEFAULT_DOWNLOAD_TIMEOUT, 
-                  roles=["data"], **xarray_kwargs: Mapping[str, Any]) -> XarrayDict:
+    def to_xarray(
+        self,
+        asset_key: Optional[str] = None,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+        roles=["data"],
+        **xarray_kwargs: Mapping[str, Any],
+    ) -> XarrayDict:
         """
-        Return a dictionnary which keys are file paths and values are xarray Datasets.
+        Return product data as a dictionary of :class:`xarray.Dataset`.
 
-        Any keyword arguments passed will be forwarded to xarray.open_dataset.
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :param roles: (optional) roles of assets that must be fetched
+        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :returns: a dictionary of :class:`xarray.Dataset`
         """
         if asset_key is None and len(self.assets) > 0:
             # assets
@@ -331,7 +356,9 @@ class EOProduct(EOProduct_core):
                 futures = (
                     executor.submit(self.to_xarray, key, wait, timeout, **xarray_kwargs)
                     for key, asset in self.assets.items()
-                    if roles and asset.get("roles") and any(r in asset["roles"] for r in roles)
+                    if roles
+                    and asset.get("roles")
+                    and any(r in asset["roles"] for r in roles)
                 )
                 for future in concurrent.futures.as_completed(futures):
                     try:
@@ -339,31 +366,34 @@ class EOProduct(EOProduct_core):
                         xd.update(**future_xd)
                     except ValueError as e:
                         logger.debug(e)
-                # [f.result() for f in concurrent.futures.as_completed(futures)]
-            # for k, asset in self.assets.items():
-            #     try:
-            #         xd[k] = asset.to_xarray(wait, timeout, **xarray_kwargs)
-            #     except ValueError as e:
-            #         logger.debug(e)
+
             if xd:
                 return xd
 
         # single file
         try:
             file = self.get_fsspec_file(asset_key, wait, timeout)
-            ds = try_open_dataset(file, **xarray_kwargs)
-            return XarrayDict({asset_key or "data": ds})      
-        
+            gdal_env = self._get_rio_env(getattr(file, "full_name", file.path))
+            with rasterio.Env(**gdal_env):
+                ds = try_open_dataset(file, **xarray_kwargs)
+            return XarrayDict({asset_key or "data": ds})
+
         except (UnsupportedDatasetAddressScheme, FileNotFoundError, ValueError) as e:
-            logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")   
+            logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
 
             # download the file and try again with local files
-            path = self.download(asset=asset_key, wait=wait, timeout=timeout)
+            path = self.download(
+                asset=asset_key, wait=wait, timeout=timeout, extract=True
+            )
 
             if asset_key is not None:
                 # path is not asset-specific, find asset path
                 # TODO: make download return asset path
-                basename = urlparse(self.assets[asset_key]["href"]).path.strip("/").split("/")[-1]
+                basename = (
+                    urlparse(self.assets[asset_key]["href"])
+                    .path.strip("/")
+                    .split("/")[-1]
+                )
                 try:
                     path = str(next(Path(path).rglob(basename)))
                 except StopIteration:
@@ -371,6 +401,7 @@ class EOProduct(EOProduct_core):
 
             xd = build_local_xarray_dict(path, **xarray_kwargs)
             if not xd:
-                raise ValueError(f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}")
+                raise ValueError(
+                    f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
+                )
             return xd
-
