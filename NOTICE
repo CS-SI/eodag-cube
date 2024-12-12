@@ -19,6 +19,8 @@ See project link for details.
 https://github.com/pydata/xarray
 https://github.com/corteva/rioxarray
 https://github.com/CS-SI/eodag
+https://github.com/ecmwf/cfgrib
+https://github.com/aio-libs/aiohttp
 
 
 ================================================================
@@ -30,3 +32,6 @@ See project link for details.
 
 http://www.numpy.org/
 https://github.com/mapbox/rasterio
+https://h5netcdf.org
+https://github.com/fsspec/filesystem_spec
+https://github.com/fsspec/s3fs
