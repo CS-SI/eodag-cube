@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
 
 import concurrent.futures
@@ -44,11 +44,11 @@ from eodag.utils import (
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
-from eodag_cube.utils import build_local_xarray_dict, try_open_dataset
+from eodag_cube.utils.exceptions import DatasetCreationError
+from eodag_cube.utils.xarray import build_local_xarray_dict, try_open_dataset
 
 if TYPE_CHECKING:
-    from io import IOBase
-
+    from fsspec.core import OpenFile
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
@@ -95,7 +95,7 @@ class EOProduct(EOProduct_core):
     """
 
     def __init__(
-        self, provider: str, properties: Dict[str, Any], **kwargs: Any
+        self, provider: str, properties: dict[str, Any], **kwargs: Any
     ) -> None:
         super(EOProduct, self).__init__(
             provider=provider, properties=properties, **kwargs
@@ -111,7 +111,7 @@ class EOProduct(EOProduct_core):
         crs: Optional[str] = None,
         resolution: Optional[float] = None,
         extent: Optional[
-            Union[str, Dict[str, float], List[float], BaseGeometry]
+            Union[str, dict[str, float], list[float], BaseGeometry]
         ] = None,
         resampling: Optional[Resampling] = None,
         **rioxr_kwargs: Any,
@@ -229,7 +229,7 @@ class EOProduct(EOProduct_core):
             logger.error(e)
             return fail_value
 
-    def _get_rio_env(self, dataset_address: str) -> Dict[str, Any]:
+    def _get_rio_env(self, dataset_address: str) -> dict[str, Any]:
         """Get rasterio environement variables needed for data access.
 
         :param dataset_address: address of the data to read
@@ -268,7 +268,7 @@ class EOProduct(EOProduct_core):
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get fsspec storage_options keyword arguments
         """
@@ -284,7 +284,7 @@ class EOProduct(EOProduct_core):
         try:
             url = self.assets[asset_key]["href"] if asset_key else self.location
         except KeyError as e:
-            raise ValueError(f"{asset_key} not found in {self} assets") from e
+            raise DatasetCreationError(f"{asset_key} not found in {self} assets") from e
         headers = {**USER_AGENT}
 
         if isinstance(auth, dict):
@@ -317,7 +317,7 @@ class EOProduct(EOProduct_core):
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-    ) -> IOBase:
+    ) -> OpenFile:
         """Open data using fsspec"""
         storage_options = self._get_storage_options(asset_key, wait, timeout)
 
@@ -336,7 +336,7 @@ class EOProduct(EOProduct_core):
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
         roles=["data"],
-        **xarray_kwargs: Mapping[str, Any],
+        **xarray_kwargs: dict[str, Any],
     ) -> XarrayDict:
         """
         Return product data as a dictionary of :class:`xarray.Dataset`.
@@ -364,7 +364,7 @@ class EOProduct(EOProduct_core):
                     try:
                         future_xd = future.result()
                         xd.update(**future_xd)
-                    except ValueError as e:
+                    except DatasetCreationError as e:
                         logger.debug(e)
 
             if xd:
@@ -378,7 +378,11 @@ class EOProduct(EOProduct_core):
                 ds = try_open_dataset(file, **xarray_kwargs)
             return XarrayDict({asset_key or "data": ds})
 
-        except (UnsupportedDatasetAddressScheme, FileNotFoundError, ValueError) as e:
+        except (
+            UnsupportedDatasetAddressScheme,
+            FileNotFoundError,
+            DatasetCreationError,
+        ) as e:
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
 
             # download the file and try again with local files
@@ -401,7 +405,7 @@ class EOProduct(EOProduct_core):
 
             xd = build_local_xarray_dict(path, **xarray_kwargs)
             if not xd:
-                raise ValueError(
+                raise DatasetCreationError(
                     f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
                 )
             return xd
