@@ -36,6 +36,17 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
     def _format_dims(self, ds):
         return ", ".join(f"{key}: {value}" for key, value in ds.sizes.items())
 
+    def _formatted_title(self, v):
+        return (
+            str(v)
+            .split("\n")[0]
+            .replace("<", "")
+            .replace(
+                ">",
+                f"&ensp;<span style='color: black'>({self._format_dims(v)})</span>&ensp;",
+            )
+        )
+
     def _repr_html_(self, embedded: bool = False) -> str:
 
         thead = (
@@ -54,9 +65,7 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
                     f"""<tr {tr_style}><td style='text-align: left;'>
                         <details><summary style='color: grey;'>
                         <span style='color: black'>'{k}'</span>:&ensp;
-                        {str(v).split("\n")[0].replace("<", "").replace(
-                         ">",
-                         f"&ensp;<span style='color: black'>({self._format_dims(v)})</span>&ensp;")}
+                        {self._formatted_title(v)}
                     </summary>
                         {v._repr_html_()}
                     </details>
