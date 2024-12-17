@@ -30,6 +30,7 @@ setup(
         "xarray",
         "rioxarray",
         "h5netcdf",
+        "netcdf4",
         "cfgrib",
         "fsspec",
         "s3fs",
