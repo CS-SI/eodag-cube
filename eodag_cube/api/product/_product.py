@@ -275,7 +275,7 @@ class EOProduct(EOProduct_core):
         auth = self.downloader_auth.authenticate() if self.downloader_auth else None
 
         # order if product is offline
-        if self.properties["storageStatus"] == OFFLINE_STATUS and hasattr(
+        if self.properties.get("storageStatus") == OFFLINE_STATUS and hasattr(
             self.downloader, "order"
         ):
             self.downloader.order(self, auth, wait=wait, timeout=timeout)
@@ -351,14 +351,20 @@ class EOProduct(EOProduct_core):
         """
         if asset_key is None and len(self.assets) > 0:
             # assets
+
+            # have roles been set in assets ?
+            roles_exist = any("roles" in a for a in self.assets.values())
+
             xd = XarrayDict()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 futures = (
                     executor.submit(self.to_xarray, key, wait, timeout, **xarray_kwargs)
                     for key, asset in self.assets.items()
                     if roles
                     and asset.get("roles")
                     and any(r in asset["roles"] for r in roles)
+                    or not roles
+                    or not roles_exist
                 )
                 for future in concurrent.futures.as_completed(futures):
                     try:
@@ -381,6 +387,7 @@ class EOProduct(EOProduct_core):
         except (
             UnsupportedDatasetAddressScheme,
             FileNotFoundError,
+            IsADirectoryError,
             DatasetCreationError,
         ) as e:
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")

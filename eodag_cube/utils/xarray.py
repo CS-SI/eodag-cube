@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any
 import fsspec
 import rioxarray
 import xarray as xr
-from fsspec.implementations.local import LocalFileOpener
 
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils import fsspec_file_extension
@@ -61,8 +60,9 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     :param file: fsspec https OpenFile
     :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
     :returns: opened xarray dataset
-
     """
+    LOCALFILE_ONLY_ENGINES = ["netcdf4", "cfgrib"]
+
     if engine := xarray_kwargs.pop("engine", None):
         all_engines = [
             engine,
@@ -70,7 +70,7 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     else:
         all_engines = guess_engines(file) or list(xr.backends.list_engines().keys())
 
-    if isinstance(file, LocalFileOpener):
+    if "file" in file.fs.protocol:
         engines = all_engines
 
         # use path str as cfgrib does not support fsspec OpenFile as input
@@ -93,7 +93,7 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     else:
         # remove engines that do not support remote access
         # https://tutorial.xarray.dev/intermediate/remote_data/remote-data.html#supported-format-read-from-buffers-remote-access
-        engines = [eng for eng in all_engines if eng not in ["netcdf4", "cfgrib"]]
+        engines = [eng for eng in all_engines if eng not in LOCALFILE_ONLY_ENGINES]
 
         file_or_path = file
 

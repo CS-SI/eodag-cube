@@ -47,24 +47,23 @@ def fsspec_file_headers(file: OpenFile) -> Optional[dict[str, Any]]:
     :param file: fsspec https OpenFile
     :returns: file headers or ``None``
     """
-    headers = None
+    file_kwargs = getattr(file, "kwargs", {})
     if "https" in file.fs.protocol:
         try:
-            resp = requests.head(file.path, **file.kwargs)
+            resp = requests.head(file.path, **file_kwargs)
             resp.raise_for_status()
         except requests.RequestException:
             pass
         else:
-            headers = resp.headers
-        if not headers:
-            # if HEAD method is not available, try to get a minimal part of the file
-            try:
-                resp = requests.get(file.path, stream=True, **file.kwargs)
-                resp.raise_for_status()
-            except requests.RequestException:
-                pass
-            else:
-                headers = resp.headers
+            return resp.headers
+        # if HEAD method is not available, try to get a minimal part of the file
+        try:
+            resp = requests.get(file.path, **file_kwargs)
+            resp.raise_for_status()
+        except requests.RequestException:
+            pass
+        else:
+            return resp.headers
     return None
 
 
@@ -84,8 +83,8 @@ def fsspec_file_extension(file: OpenFile) -> Optional[str]:
                 Optional[str],
                 parse_header(content_disposition).get_param("filename", None),
             )
-            _, extension = os.path.splitext(filename) if filename else None, None
-        if extension:
+            _, extension = os.path.splitext(filename) if filename else (None, None)
+        if not extension:
             mime_type = headers.get("content-type", "").split(";")[0]
             if mime_type not in IGNORED_MIMETYPES:
                 extension = guess_extension(mime_type)

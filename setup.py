@@ -47,6 +47,7 @@ setup(
             "faker",
             "coverage",
             "moto >= 5",
+            "responses < 0.24.0",
             "twine",
             "wheel",
         ]

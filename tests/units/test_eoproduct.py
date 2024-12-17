@@ -19,30 +19,26 @@
 import itertools
 import os
 import random
-import shutil
-import urllib.request
-from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import numpy as np
 import xarray as xr
 from rasterio.session import AWSSession
 
-from eodag_cube.types import XarrayDict
-from tests import (
-    TEST_GRIB_FILE_PATH,
-    TEST_GRIB_FILENAME,
-    TEST_RESOURCES_PATH,
-    EODagTestCase,
-)
+from tests import TEST_GRIB_FILE_PATH, TEST_GRIB_FILENAME, EODagTestCase
 from tests.context import (
+    DEFAULT_DOWNLOAD_TIMEOUT,
+    DEFAULT_DOWNLOAD_WAIT,
     DEFAULT_PROJ,
+    USER_AGENT,
     Authentication,
     AwsAuth,
     AwsDownload,
+    DatasetCreationError,
     Download,
     DownloadError,
     EOProduct,
+    HTTPHeaderAuth,
+    HttpQueryStringAuth,
     NoDriver,
     PluginConfig,
     Sentinel2L1C,
@@ -250,44 +246,193 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
         self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
 
-    def populate_directory_with_heterogeneous_files(self, destination):
-        """
-        Put various files in the destination directory:
-        - a NetCDF file
-        - a JPEG2000 file
-        - an XML file
-        """
-        # Copy all files from a grib product
-        cams_air_quality_product_path = os.path.join(
-            TEST_RESOURCES_PATH,
-            "products",
-            "cams-europe-air-quality-forecasts",
+    def test_get_storage_options_http_headers(self):
+        """_get_storage_options should be adapted to the provider config"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
         )
-        shutil.copytree(cams_air_quality_product_path, destination, dirs_exist_ok=True)
-
-        # Copy files from an S2A product
-        s2a_path = os.path.join(
-            TEST_RESOURCES_PATH,
-            "products",
-            "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
+        # http headers auth
+        product.register_downloader(
+            Download("foo", PluginConfig()),
+            HTTPHeaderAuth(
+                "foo",
+                PluginConfig.from_mapping(
+                    {
+                        "credentials": {"apikey": "foo"},
+                        "headers": {"X-API-Key": "{apikey}"},
+                    }
+                ),
+            ),
         )
-        shutil.copytree(s2a_path, destination, dirs_exist_ok=True)
+        self.assertDictEqual(
+            product._get_storage_options(),
+            {
+                "path": self.download_url,
+                "headers": {"X-API-Key": "foo", **USER_AGENT},
+            },
+        )
 
-    def test_build_xarray_dict(self):
-        with TemporaryDirectory(prefix="eodag-cube-tests") as tmp_dir:
-            product = EOProduct(
-                self.provider, self.eoproduct_props, productType=self.product_type
-            )
-            product.location = "file:" + urllib.request.pathname2url(tmp_dir)
-            self.populate_directory_with_heterogeneous_files(tmp_dir)
+    def test_get_storage_options_http_qs(self):
+        """_get_storage_options should be adapted to the provider config"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+        # http qs auth
+        product.register_downloader(
+            Download("foo", PluginConfig()),
+            HttpQueryStringAuth(
+                "foo",
+                PluginConfig.from_mapping(
+                    {
+                        "credentials": {"apikey": "foo"},
+                    }
+                ),
+            ),
+        )
+        self.assertDictEqual(
+            product._get_storage_options(),
+            {
+                "path": f"{self.download_url}?apikey=foo",
+                "headers": USER_AGENT,
+            },
+        )
 
-            xarray_dict = product._build_xarray_dict()
+    def test_get_storage_options_s3(self):
+        """_get_storage_options should be adapted to the provider config"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+        # http s3 auth
+        product.register_downloader(
+            Download(
+                "foo",
+                PluginConfig.from_mapping(
+                    {
+                        "s3_endpoint": "http://foo.bar",
+                    }
+                ),
+            ),
+            AwsAuth(
+                "foo",
+                PluginConfig.from_mapping(
+                    {
+                        "credentials": {
+                            "aws_access_key_id": "foo",
+                            "aws_secret_access_key": "bar",
+                            "aws_session_token": "baz",
+                        },
+                    }
+                ),
+            ),
+        )
+        self.assertDictEqual(
+            product._get_storage_options(),
+            {
+                "path": self.download_url,
+                "key": "foo",
+                "secret": "bar",
+                "token": "baz",
+                "client_kwargs": {"endpoint_url": "http://foo.bar"},
+            },
+        )
 
-            self.assertIsInstance(xarray_dict, XarrayDict)
-            self.assertEqual(len(xarray_dict), 2)
-            for key, value in xarray_dict.items():
-                self.assertIn(Path(key).suffix, {".nc", ".jp2"})
-                self.assertIsInstance(value, xr.Dataset)
+    def test_get_storage_options_error(self):
+        """_get_storage_options should be adapted to the provider config"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+        with self.assertRaises(
+            DatasetCreationError, msg=f"foo not found in {product} assets"
+        ):
+            product._get_storage_options(asset_key="foo")
 
-            for ds in xarray_dict.values():
-                ds.close()
+    @mock.patch("eodag_cube.api.product._product.fsspec.filesystem")
+    @mock.patch(
+        "eodag_cube.api.product._product.EOProduct._get_storage_options", autospec=True
+    )
+    def test_get_fsspec_file(self, mock_storage_options, mock_fs):
+        """get_fsspec_file should call fsspec open with appropriate args"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+        # https
+        mock_storage_options.return_value = {"path": "https://foo.bar", "baz": "qux"}
+        file = product.get_fsspec_file()
+        mock_fs.assert_called_once_with("https", baz="qux")
+        mock_fs.return_value.open.assert_called_once_with(path="https://foo.bar")
+        self.assertEqual(file, mock_fs.return_value.open.return_value)
+        mock_fs.reset_mock()
+        # s3
+        mock_storage_options.return_value = {"path": "s3://foo.bar", "baz": "qux"}
+        file = product.get_fsspec_file()
+        mock_fs.assert_called_once_with("s3", baz="qux")
+        mock_fs.return_value.open.assert_called_once_with(path="s3://foo.bar")
+        self.assertEqual(file, mock_fs.return_value.open.return_value)
+        mock_fs.reset_mock()
+        # local
+        mock_storage_options.return_value = {
+            "path": os.path.join("foo", "bar"),
+            "baz": "qux",
+        }
+        file = product.get_fsspec_file()
+        mock_fs.assert_called_once_with("file", baz="qux")
+        mock_fs.return_value.open.assert_called_once_with(
+            path=os.path.join("foo", "bar")
+        )
+        self.assertEqual(file, mock_fs.return_value.open.return_value)
+        mock_fs.reset_mock()
+        # not found
+        mock_storage_options.return_value = {"baz": "qux"}
+        with self.assertRaises(
+            UnsupportedDatasetAddressScheme, msg=f"Could not get {product} path"
+        ):
+            product.get_fsspec_file()
+
+    @mock.patch("eodag_cube.api.product._product.try_open_dataset", autospec=True)
+    @mock.patch(
+        "eodag_cube.api.product._product.EOProduct.get_fsspec_file", autospec=True
+    )
+    def test_to_xarray(self, mock_get_file, mock_open_ds):
+        """to_xarrray should return well built XarrayDict"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+        mock_open_ds.return_value = xr.Dataset()
+        mock_get_file.return_value.path = "http://foo.bar"
+        xd = product.to_xarray(foo="bar")
+        mock_get_file.assert_called_once_with(
+            product, None, DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT
+        )
+        mock_open_ds.assert_called_once_with(mock_get_file.return_value, foo="bar")
+        self.assertEqual(len(xd), 1)
+        self.assertTrue(xd["data"].equals(mock_open_ds.return_value))
+
+    @mock.patch("eodag_cube.api.product._product.try_open_dataset", autospec=True)
+    @mock.patch(
+        "eodag_cube.api.product._product.EOProduct.get_fsspec_file", autospec=True
+    )
+    def test_to_xarray_assets(self, mock_get_file, mock_open_ds):
+        """to_xarrray should return well built XarrayDict"""
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+        product.assets.update(
+            {"foo": {"href": "http://foo.bar"}},
+        )
+        product.assets.update(
+            {"bar": {"href": "http://bar.baz"}},
+        )
+
+        mock_open_ds.return_value = xr.Dataset()
+        mock_get_file.return_value.path = "http://foo.bar"
+        xd = product.to_xarray(foo="bar")
+        mock_get_file.assert_any_call(
+            product, "foo", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT
+        )
+        mock_get_file.assert_any_call(
+            product, "bar", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT
+        )
+        mock_open_ds.assert_called_with(mock_get_file.return_value, foo="bar")
+        self.assertEqual(len(xd), 2)
+        self.assertTrue(xd["foo"].equals(mock_open_ds.return_value))
+        self.assertTrue(xd["bar"].equals(mock_open_ds.return_value))
