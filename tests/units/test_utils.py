@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import unittest
 
 import fsspec.implementations
@@ -143,7 +144,7 @@ class TestXarray(unittest.TestCase):
 
         all_engines = xr.backends.list_engines()
 
-        for eng in ["h5netcdf", "cfgrib", "rasterio"]:
+        for eng in ["h5netcdf", "rasterio"]:
             self.assertIn(eng, all_engines)
 
         fs = fsspec.filesystem("https")
@@ -157,8 +158,10 @@ class TestXarray(unittest.TestCase):
         file = OpenFile(fs, "https://foo/bar.nc")
         self.assertIn("h5netcdf", guess_engines(file))
 
-        file = OpenFile(fs, "https://foo/bar.grib")
-        self.assertIn("cfgrib", guess_engines(file))
+        # cfgrib only available for python <= 3.9
+        if sys.version_info.minor <= 9:
+            file = OpenFile(fs, "https://foo/bar.grib")
+            self.assertIn("cfgrib", guess_engines(file))
 
     @mock.patch(
         "eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"]
@@ -186,6 +189,9 @@ class TestXarray(unittest.TestCase):
             ):
                 ds = try_open_dataset(file, foo="bar", baz="qux")
 
+    @unittest.skipIf(
+        sys.version_info.minor > 9, "cfgrib only available for python <= 3.9"
+    )
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["cfgrib"])
     @mock.patch("eodag_cube.utils.xarray.fsspec.open")
     def test_try_open_dataset_remote_grib(self, mock_open, mock_guess_engines):
@@ -201,6 +207,9 @@ class TestXarray(unittest.TestCase):
         ):
             try_open_dataset(file, foo="bar", baz="qux")
 
+    @unittest.skipIf(
+        sys.version_info.minor > 9, "cfgrib only available for python <= 3.9"
+    )
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["cfgrib"])
     @mock.patch("eodag_cube.utils.xarray.fsspec.open")
     def test_try_open_dataset_local_grib(self, mock_open, mock_guess_engines):
