@@ -386,8 +386,7 @@ class EOProduct(EOProduct_core):
 
         except (
             UnsupportedDatasetAddressScheme,
-            FileNotFoundError,
-            IsADirectoryError,
+            OSError,
             DatasetCreationError,
         ) as e:
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
