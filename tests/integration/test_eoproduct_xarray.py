@@ -28,23 +28,34 @@ from tests.utils import populate_directory_with_heterogeneous_files
 
 
 class TestEOProductXarray(EODagTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(TestEOProductXarray, cls).setUpClass()
+        cls.tmp_dir = TemporaryDirectory(prefix="eodag-cube-tests")
+
+    @classmethod
+    def tearDownClass(cls):
+        super(TestEOProductXarray, cls).tearDownClass()
+        cls.tmp_dir.cleanup()
+
     def test_to_xarray_local(self):
         """to_xarray must build a Dataset from found local paths"""
-        with TemporaryDirectory(prefix="eodag-cube-tests") as tmp_dir:
-            product = EOProduct(
-                self.provider, self.eoproduct_props, productType=self.product_type
-            )
-            product.register_downloader(AwsDownload("foo", PluginConfig()), None)
-            product.location = path_to_uri(tmp_dir)
-            populate_directory_with_heterogeneous_files(tmp_dir)
+        product = EOProduct(
+            self.provider, self.eoproduct_props, productType=self.product_type
+        )
+        product.register_downloader(AwsDownload("foo", PluginConfig()), None)
+        product.location = path_to_uri(self.tmp_dir.name)
+        populate_directory_with_heterogeneous_files(self.tmp_dir.name)
 
-            xarray_dict = product.to_xarray()
+        xarray_dict = product.to_xarray()
 
-            self.assertIsInstance(xarray_dict, XarrayDict)
-            self.assertEqual(len(xarray_dict), 2)
-            for key, value in xarray_dict.items():
-                self.assertIn(Path(key).suffix, {".nc", ".jp2"})
-                self.assertIsInstance(value, xr.Dataset)
+        self.assertIsInstance(xarray_dict, XarrayDict)
+        self.assertEqual(len(xarray_dict), 2)
+        for key, value in xarray_dict.items():
+            self.assertIn(Path(key).suffix, {".nc", ".jp2"})
+            self.assertIsInstance(value, xr.Dataset)
 
-            for ds in xarray_dict.values():
-                ds.close()
+        for k, ds in xarray_dict.items():
+            ds.close()
+            if k in xarray_dict._files:
+                xarray_dict._files[k].close()

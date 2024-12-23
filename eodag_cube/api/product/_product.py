@@ -382,7 +382,10 @@ class EOProduct(EOProduct_core):
             gdal_env = self._get_rio_env(getattr(file, "full_name", file.path))
             with rasterio.Env(**gdal_env):
                 ds = try_open_dataset(file, **xarray_kwargs)
-            return XarrayDict({asset_key or "data": ds})
+            xd_key = asset_key or "data"
+            xd = XarrayDict({xd_key: ds})
+            xd._files[xd_key] = file
+            return xd
 
         except (
             UnsupportedDatasetAddressScheme,

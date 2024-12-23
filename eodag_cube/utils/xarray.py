@@ -156,6 +156,7 @@ def build_local_xarray_dict(
             ds = try_open_dataset(file, **xarray_kwargs)
             key = os.path.relpath(file_str, local_path)
             xarray_dict[key] = ds
+            xarray_dict._files[key] = file
         except DatasetCreationError as e:
             logger.debug(e)
 

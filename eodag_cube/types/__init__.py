@@ -21,9 +21,12 @@ from __future__ import annotations
 
 import logging
 from collections import UserDict
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import xarray as xr
+
+if TYPE_CHECKING:
+    from fsspec.core import OpenFile
 
 logger = logging.getLogger("eodag-cube.types")
 
@@ -32,6 +35,8 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
     """
     Dictionnary which keys are file paths and values are xarray Datasets.
     """
+
+    _files: dict[str, OpenFile] = {}
 
     def _format_dims(self, ds):
         return ", ".join(f"{key}: {value}" for key, value in ds.sizes.items())
