@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections import UserDict
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import xarray as xr
 
@@ -37,6 +37,12 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
     """
 
     _files: dict[str, OpenFile] = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args: Any):
+        self.close()
 
     def _format_dims(self, ds):
         return ", ".join(f"{key}: {value}" for key, value in ds.sizes.items())
@@ -81,3 +87,10 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
             )
             + "</tbody></table>"
         )
+
+    def close(self) -> None:
+        """Close all datasets and associated file objects"""
+        for k, ds in self.items():
+            ds.close()
+            if k in self._files:
+                self._files[k].close()

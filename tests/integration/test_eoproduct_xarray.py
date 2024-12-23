@@ -47,23 +47,22 @@ class TestEOProductXarray(EODagTestCase):
         )
         product.location = path_to_uri(products_path)
 
-        xarray_dict = product.to_xarray()
+        with product.to_xarray() as xarray_dict:
 
-        self.assertIsInstance(xarray_dict, XarrayDict)
-        # cfgrib only available for python <= 3.9
-        if sys.version_info.minor <= 9:
-            self.assertEqual(len(xarray_dict), 3)
-        else:
-            self.assertEqual(len(xarray_dict), 2)
-        for key, value in xarray_dict.items():
+            self.assertIsInstance(xarray_dict, XarrayDict)
             # cfgrib only available for python <= 3.9
             if sys.version_info.minor <= 9:
-                self.assertIn(Path(key).suffix, {".nc", ".grib", ".jp2"})
+                self.assertEqual(len(xarray_dict), 3)
             else:
-                self.assertIn(Path(key).suffix, {".nc", ".jp2"})
-            self.assertIsInstance(value, xr.Dataset)
+                self.assertEqual(len(xarray_dict), 2)
+            for key, value in xarray_dict.items():
+                # cfgrib only available for python <= 3.9
+                if sys.version_info.minor <= 9:
+                    self.assertIn(Path(key).suffix, {".nc", ".grib", ".jp2"})
+                else:
+                    self.assertIn(Path(key).suffix, {".nc", ".jp2"})
+                self.assertIsInstance(value, xr.Dataset)
 
-        for k, ds in xarray_dict.items():
-            ds.close()
-            if k in xarray_dict._files:
-                xarray_dict._files[k].close()
+        # check that with statement closed all files
+        for file in xarray_dict._files.values():
+            self.assertTrue(file.closed)
