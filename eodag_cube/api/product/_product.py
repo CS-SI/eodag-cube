@@ -301,6 +301,8 @@ class EOProduct(EOProduct_core):
                 auth_kwargs["secret"] = auth["aws_secret_access_key"]
             if "aws_session_token" in auth:
                 auth_kwargs["token"] = auth["aws_session_token"]
+            if "profile_name" in auth:
+                auth_kwargs["profile"] = auth["profile_name"]
             return {"path": url, **auth_kwargs}
 
         # update url and headers with auth
