@@ -350,21 +350,21 @@ class TestEOProduct(EODagTestCase):
     @mock.patch(
         "eodag_cube.api.product._product.EOProduct._get_storage_options", autospec=True
     )
-    def test_get_fsspec_file(self, mock_storage_options, mock_fs):
-        """get_fsspec_file should call fsspec open with appropriate args"""
+    def test_get_file_obj(self, mock_storage_options, mock_fs):
+        """get_file_obj should call fsspec open with appropriate args"""
         product = EOProduct(
             self.provider, self.eoproduct_props, productType=self.product_type
         )
         # https
         mock_storage_options.return_value = {"path": "https://foo.bar", "baz": "qux"}
-        file = product.get_fsspec_file()
+        file = product.get_file_obj()
         mock_fs.assert_called_once_with("https", baz="qux")
         mock_fs.return_value.open.assert_called_once_with(path="https://foo.bar")
         self.assertEqual(file, mock_fs.return_value.open.return_value)
         mock_fs.reset_mock()
         # s3
         mock_storage_options.return_value = {"path": "s3://foo.bar", "baz": "qux"}
-        file = product.get_fsspec_file()
+        file = product.get_file_obj()
         mock_fs.assert_called_once_with("s3", baz="qux")
         mock_fs.return_value.open.assert_called_once_with(path="s3://foo.bar")
         self.assertEqual(file, mock_fs.return_value.open.return_value)
@@ -374,7 +374,7 @@ class TestEOProduct(EODagTestCase):
             "path": os.path.join("foo", "bar"),
             "baz": "qux",
         }
-        file = product.get_fsspec_file()
+        file = product.get_file_obj()
         mock_fs.assert_called_once_with("file", baz="qux")
         mock_fs.return_value.open.assert_called_once_with(
             path=os.path.join("foo", "bar")
@@ -386,12 +386,10 @@ class TestEOProduct(EODagTestCase):
         with self.assertRaises(
             UnsupportedDatasetAddressScheme, msg=f"Could not get {product} path"
         ):
-            product.get_fsspec_file()
+            product.get_file_obj()
 
     @mock.patch("eodag_cube.api.product._product.try_open_dataset", autospec=True)
-    @mock.patch(
-        "eodag_cube.api.product._product.EOProduct.get_fsspec_file", autospec=True
-    )
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
     def test_to_xarray(self, mock_get_file, mock_open_ds):
         """to_xarrray should return well built XarrayDict"""
         product = EOProduct(
@@ -408,9 +406,7 @@ class TestEOProduct(EODagTestCase):
         self.assertTrue(xd["data"].equals(mock_open_ds.return_value))
 
     @mock.patch("eodag_cube.api.product._product.try_open_dataset", autospec=True)
-    @mock.patch(
-        "eodag_cube.api.product._product.EOProduct.get_fsspec_file", autospec=True
-    )
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
     def test_to_xarray_assets(self, mock_get_file, mock_open_ds):
         """to_xarrray should return well built XarrayDict"""
         product = EOProduct(

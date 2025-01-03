@@ -312,7 +312,7 @@ class EOProduct(EOProduct_core):
 
         return {"path": auth_req.url, "headers": auth_req.headers}
 
-    def get_fsspec_file(
+    def get_file_obj(
         self,
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
@@ -378,7 +378,7 @@ class EOProduct(EOProduct_core):
 
         # single file
         try:
-            file = self.get_fsspec_file(asset_key, wait, timeout)
+            file = self.get_file_obj(asset_key, wait, timeout)
             gdal_env = self._get_rio_env(getattr(file, "full_name", file.path))
             with rasterio.Env(**gdal_env):
                 ds = try_open_dataset(file, **xarray_kwargs)
