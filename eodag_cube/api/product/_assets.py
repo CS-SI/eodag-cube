@@ -27,6 +27,7 @@ from eodag.api.product._assets import AssetsDict as AssetsDict_core
 from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT, _deprecated
 
 if TYPE_CHECKING:
+    from fsspec.core import OpenFile
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
@@ -111,6 +112,14 @@ class Asset(Asset_core):
             resampling=resampling,
             **rioxr_kwargs,
         )
+
+    def get_file_obj(
+        self,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    ) -> OpenFile:
+        """Open asset data using fsspec"""
+        return self.product.get_file_obj(self.key, wait, timeout)
 
     def to_xarray(
         self,
