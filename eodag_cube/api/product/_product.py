@@ -356,7 +356,7 @@ class EOProduct(EOProduct_core):
             roles_exist = any("roles" in a for a in self.assets.values())
 
             xd = XarrayDict()
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = (
                     executor.submit(self.to_xarray, key, wait, timeout, **xarray_kwargs)
                     for key, asset in self.assets.items()
