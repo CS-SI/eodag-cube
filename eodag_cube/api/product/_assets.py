@@ -118,7 +118,14 @@ class Asset(Asset_core):
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
     ) -> OpenFile:
-        """Open asset data using fsspec"""
+        """Open asset data using fsspec
+
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :returns: asset data file object
+        """
         return self.product.get_file_obj(self.key, wait, timeout)
 
     def to_xarray(

@@ -135,6 +135,7 @@ def build_local_xarray_dict(
 ) -> XarrayDict:
     """Build XarrayDict for local data
 
+    :param local_path: local path to scan for data
     :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
     :returns: a dictionary of :class:`xarray.Dataset`
     """

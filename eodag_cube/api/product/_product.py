@@ -320,7 +320,16 @@ class EOProduct(EOProduct_core):
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
     ) -> OpenFile:
-        """Open data using fsspec"""
+        """Open data using fsspec
+
+        :param asset_key: (optional) key of the asset. If not specified the whole
+                          product will be opened
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :returns: product data file object
+        """
         storage_options = self._get_storage_options(asset_key, wait, timeout)
 
         path = storage_options.pop("path", None)
@@ -343,6 +352,8 @@ class EOProduct(EOProduct_core):
         """
         Return product data as a dictionary of :class:`xarray.Dataset`.
 
+        :param asset_key: (optional) key of the asset. If not specified the whole
+                          product data will be retrieved
         :param wait: (optional) If order is needed, wait time in minutes between two
                      order status check
         :param timeout: (optional) If order is needed, maximum time in minutes before
