@@ -24,13 +24,17 @@ setup(
     package_data={"": ["LICENSE", "NOTICE"], "eodag_cube": ["py.typed"]},
     include_package_data=True,
     install_requires=[
-        "eodag >= 3.0.0b1",
+        "eodag @ git+https://github.com/CS-SI/eodag@develop",
         "numpy",
         "rasterio",
         "xarray",
         "rioxarray",
+        "h5netcdf",
         "netcdf4",
         "cfgrib",
+        "fsspec",
+        "s3fs",
+        "aiohttp",
     ],
     extras_require={
         "dev": [
@@ -44,6 +48,7 @@ setup(
             "faker",
             "coverage",
             "moto >= 5",
+            "responses < 0.24.0",
             "twine",
             "wheel",
         ]

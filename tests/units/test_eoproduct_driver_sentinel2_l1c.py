@@ -59,7 +59,9 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         with self._filesystem_product() as product:
             band = "B01"
             address = self.product.driver.get_data_address(product, band)
-            self.assertEqual(address, self.local_band_file)
+            self.assertEqual(
+                os.path.normcase(address), os.path.normcase(self.local_band_file)
+            )
 
     @mock_aws
     def test_driver_get_amazon_s3_remote_dataset_address_ok(self):

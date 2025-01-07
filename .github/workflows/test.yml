@@ -52,6 +52,9 @@ jobs:
       with:
         path: ${{ steps.pip-cache.outputs.dir }}
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ steps.get-week.outputs.week }}-${{ hashFiles('setup.py') }}
+    - name: Enable long paths on Windows and Git
+      if: runner.os == 'Windows'
+      run: git config --global core.longpaths true
     - name: Install from eodag develop branch
       run: pip install git+https://github.com/CS-SI/eodag.git@develop
     - name: Install other deps
