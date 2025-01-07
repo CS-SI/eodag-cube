@@ -404,6 +404,7 @@ class TestEOProduct(EODagTestCase):
         mock_open_ds.assert_called_once_with(mock_get_file.return_value, foo="bar")
         self.assertEqual(len(xd), 1)
         self.assertTrue(xd["data"].equals(mock_open_ds.return_value))
+        self.assertDictEqual(product.properties, xd["data"].attrs)
 
     @mock.patch("eodag_cube.api.product._product.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
@@ -432,3 +433,5 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(len(xd), 2)
         self.assertTrue(xd["foo"].equals(mock_open_ds.return_value))
         self.assertTrue(xd["bar"].equals(mock_open_ds.return_value))
+        self.assertDictEqual(product.properties, xd["foo"].attrs)
+        self.assertDictEqual(product.properties, xd["bar"].attrs)

@@ -395,6 +395,8 @@ class EOProduct(EOProduct_core):
             gdal_env = self._get_rio_env(getattr(file, "full_name", file.path))
             with rasterio.Env(**gdal_env):
                 ds = try_open_dataset(file, **xarray_kwargs)
+            # set attributes
+            ds.attrs.update(**self.properties)
             xd_key = asset_key or "data"
             xd = XarrayDict({xd_key: ds})
             xd._files[xd_key] = file
@@ -430,4 +432,7 @@ class EOProduct(EOProduct_core):
                 raise DatasetCreationError(
                     f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
                 )
+            # set attributes
+            for k in xd.keys():
+                xd[k].attrs.update(**self.properties)
             return xd

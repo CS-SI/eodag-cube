@@ -62,6 +62,8 @@ class TestEOProductXarray(EODagTestCase):
                 else:
                     self.assertIn(Path(key).suffix, {".nc", ".jp2"})
                 self.assertIsInstance(value, xr.Dataset)
+                # properties are a included in attrs
+                self.assertLessEqual(product.properties.items(), value.attrs.items())
 
         # check that with statement closed all files
         for file in xarray_dict._files.values():
