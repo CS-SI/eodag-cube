@@ -1,6 +1,14 @@
 Release history
 ---------------
 
+0.6.0b1 (2025-01-13)
+++++++++++++++++++
+
+* New ``get_file_obj()`` and ``to_xarray()`` methods, making `get_data()` deprecated (#79)
+* s3 endpoint fix (#70)
+* ``netcdf4`` and ``cfgrib`` added as dependencies (#69)
+* Added python ``3.13`` and removed ``3.8`` support (#67)
+
 0.5.0 (2024-10-10)
 ++++++++++++++++++
 

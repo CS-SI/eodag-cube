@@ -24,7 +24,7 @@ setup(
     package_data={"": ["LICENSE", "NOTICE"], "eodag_cube": ["py.typed"]},
     include_package_data=True,
     install_requires=[
-        "eodag @ git+https://github.com/CS-SI/eodag@develop",
+        "eodag >= 3.1.0b1",
         "numpy",
         "rasterio",
         "xarray",
