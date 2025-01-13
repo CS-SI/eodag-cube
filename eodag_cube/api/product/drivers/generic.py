@@ -34,6 +34,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger("eodag-cube.driver.generic")
 
 
+# File extensions to accept on top of those known to rasterio/GDAL
+EXTRA_ALLOWED_FILE_EXTENSIONS = [".grib", ".grib2"]
+
+
 class GenericDriver(DatasetDriver):
     """Generic Driver for products that need to be downloaded"""
 
@@ -56,7 +60,9 @@ class GenericDriver(DatasetDriver):
             matching_files = []
             for f_path in Path(uri_to_path(eo_product.location)).glob("**/*"):
                 f_str = str(f_path.resolve())
-                if p.search(f_str):
+                if f_path.suffix in EXTRA_ALLOWED_FILE_EXTENSIONS:
+                    matching_files.append(f_str)
+                elif p.search(f_str):
                     try:
                         # files readable by rasterio
                         rasterio.drivers.driver_from_extension(f_path)

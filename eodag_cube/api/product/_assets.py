@@ -17,15 +17,22 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union
+
+import xarray as xr
 
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
+from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT, _deprecated
 
 if TYPE_CHECKING:
+    from fsspec.core import OpenFile
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
+
+logger = logging.getLogger("eodag-cube.api.product")
 
 
 class AssetsDict(AssetsDict_core):
@@ -58,6 +65,7 @@ class Asset(Asset_core):
     :type kwargs: Any
     """
 
+    @_deprecated("Use to_xarray instead")
     def get_data(
         self,
         crs: Optional[str] = None,
@@ -104,3 +112,41 @@ class Asset(Asset_core):
             resampling=resampling,
             **rioxr_kwargs,
         )
+
+    def get_file_obj(
+        self,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    ) -> OpenFile:
+        """Open asset data using fsspec
+
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :returns: asset data file object
+        """
+        return self.product.get_file_obj(self.key, wait, timeout)
+
+    def to_xarray(
+        self,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+        **xarray_kwargs: Mapping[str, Any],
+    ) -> xr.Dataset:
+        """
+        Return asset data as a :class:`xarray.Dataset`.
+
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :returns: Asset data as a :class:`xarray.Dataset`
+        """
+        xd = self.product.to_xarray(self.key, wait, timeout, **xarray_kwargs)
+        if len(xd) > 1:
+            logger.warning(
+                f"Several Datasets were returned for {self.product} {self.key}: {xd.keys()}"
+            )
+        return next(iter(xd.values()))

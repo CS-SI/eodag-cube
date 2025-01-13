@@ -16,8 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import shutil
+
 # All tests files should import mock from this place
 from unittest import mock  # noqa
+
+from tests import TEST_RESOURCES_PATH
 
 
 def no_blanks(string):
@@ -29,3 +34,27 @@ def no_blanks(string):
     :returns the same string with all blank characters removed
     """
     return string.replace("\n", "").replace("\t", "").replace(" ", "")
+
+
+def populate_directory_with_heterogeneous_files(destination):
+    """
+    Put various files in the destination directory:
+    - a NetCDF file
+    - a JPEG2000 file
+    - an XML file
+    """
+    # Copy all files from a grib product
+    cams_air_quality_product_path = os.path.join(
+        TEST_RESOURCES_PATH,
+        "products",
+        "cams-europe-air-quality-forecasts",
+    )
+    shutil.copytree(cams_air_quality_product_path, destination, dirs_exist_ok=True)
+
+    # Copy files from an S2A product
+    s2a_path = os.path.join(
+        TEST_RESOURCES_PATH,
+        "products",
+        "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE",
+    )
+    shutil.copytree(s2a_path, destination, dirs_exist_ok=True)

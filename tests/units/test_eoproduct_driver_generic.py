@@ -19,7 +19,13 @@
 import os
 from contextlib import contextmanager
 
-from tests import TEST_RESOURCES_PATH, EODagTestCase
+from tests import (
+    TEST_GRIB_FILE_PATH,
+    TEST_GRIB_FILENAME,
+    TEST_GRIB_PRODUCT_PATH,
+    TEST_RESOURCES_PATH,
+    EODagTestCase,
+)
 from tests.context import (
     AddressNotFound,
     EOProduct,
@@ -56,7 +62,19 @@ class TestEOProductDriverGeneric(EODagTestCase):
         with self._filesystem_product() as product:
             band = "B01"
             address = self.product.driver.get_data_address(product, band)
-            self.assertEqual(address, self.local_band_file)
+            self.assertEqual(
+                os.path.normcase(address), os.path.normcase(self.local_band_file)
+            )
+
+    def test_driver_get_local_grib_dataset_address_ok(self):
+        """Driver returns a good address for a grib file"""
+        with self._grib_product() as product:
+
+            address = self.product.driver.get_data_address(product, TEST_GRIB_FILENAME)
+
+            self.assertEqual(
+                os.path.normcase(address), os.path.normcase(TEST_GRIB_FILE_PATH)
+            )
 
     def test_driver_get_http_remote_dataset_address_fail(self):
         """Driver must raise UnsupportedDatasetAddressScheme if location scheme is http or https"""
@@ -76,6 +94,15 @@ class TestEOProductDriverGeneric(EODagTestCase):
             self.product.location = "file:///{}".format(
                 self.product.properties["title"].strip("/")
             )
+            yield self.product
+        finally:
+            self.product.location = original
+
+    @contextmanager
+    def _grib_product(self):
+        original = self.product.location
+        try:
+            self.product.location = f"file://{TEST_GRIB_PRODUCT_PATH}"
             yield self.product
         finally:
             self.product.location = original

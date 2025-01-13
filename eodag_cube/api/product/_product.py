@@ -19,20 +19,36 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional, Union
+from urllib.parse import urlparse
 
+import concurrent.futures
+import fsspec
 import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
 from rasterio.vrt import WarpedVRT
+from requests import PreparedRequest
 
 from eodag.api.product._product import EOProduct as EOProduct_core
-from eodag.utils import get_geometry_from_various
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS
+from eodag.utils import (
+    DEFAULT_DOWNLOAD_TIMEOUT,
+    DEFAULT_DOWNLOAD_WAIT,
+    USER_AGENT,
+    _deprecated,
+    get_geometry_from_various,
+)
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
 from eodag_cube.api.product._assets import AssetsDict
+from eodag_cube.types import XarrayDict
+from eodag_cube.utils.exceptions import DatasetCreationError
+from eodag_cube.utils.xarray import build_local_xarray_dict, try_open_dataset
 
 if TYPE_CHECKING:
+    from fsspec.core import OpenFile
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
@@ -79,7 +95,7 @@ class EOProduct(EOProduct_core):
     """
 
     def __init__(
-        self, provider: str, properties: Dict[str, Any], **kwargs: Any
+        self, provider: str, properties: dict[str, Any], **kwargs: Any
     ) -> None:
         super(EOProduct, self).__init__(
             provider=provider, properties=properties, **kwargs
@@ -88,13 +104,14 @@ class EOProduct(EOProduct_core):
         self.assets = AssetsDict(self)
         self.assets.update(core_assets_data)
 
+    @_deprecated("Use to_xarray instead")
     def get_data(
         self,
         band: str,
         crs: Optional[str] = None,
         resolution: Optional[float] = None,
         extent: Optional[
-            Union[str, Dict[str, float], List[float], BaseGeometry]
+            Union[str, dict[str, float], list[float], BaseGeometry]
         ] = None,
         resampling: Optional[Resampling] = None,
         **rioxr_kwargs: Any,
@@ -212,7 +229,7 @@ class EOProduct(EOProduct_core):
             logger.error(e)
             return fail_value
 
-    def _get_rio_env(self, dataset_address: str) -> Dict[str, Any]:
+    def _get_rio_env(self, dataset_address: str) -> dict[str, Any]:
         """Get rasterio environement variables needed for data access.
 
         :param dataset_address: address of the data to read
@@ -234,7 +251,7 @@ class EOProduct(EOProduct_core):
                     **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
                 )
             }
-            endpoint_url = getattr(self.downloader.config, "base_uri", None)
+            endpoint_url = getattr(self.downloader.config, "s3_endpoint", None)
             if endpoint_url:
                 aws_s3_endpoint = endpoint_url.split("://")[-1]
                 rio_env_dict.update(
@@ -245,3 +262,177 @@ class EOProduct(EOProduct_core):
             return rio_env_dict
         else:
             return {}
+
+    def _get_storage_options(
+        self,
+        asset_key: Optional[str] = None,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    ) -> dict[str, Any]:
+        """
+        Get fsspec storage_options keyword arguments
+        """
+        auth = self.downloader_auth.authenticate() if self.downloader_auth else None
+
+        # order if product is offline
+        if self.properties.get("storageStatus") == OFFLINE_STATUS and hasattr(
+            self.downloader, "order"
+        ):
+            self.downloader.order(self, auth, wait=wait, timeout=timeout)
+
+        # default url and headers
+        try:
+            url = self.assets[asset_key]["href"] if asset_key else self.location
+        except KeyError as e:
+            raise DatasetCreationError(f"{asset_key} not found in {self} assets") from e
+        headers = {**USER_AGENT}
+
+        if isinstance(auth, dict):
+            auth_kwargs = dict()
+            # AwsAuth
+            s3_endpoint = getattr(self.downloader.config, "s3_endpoint", None)
+            if s3_endpoint is not None:
+                auth_kwargs["client_kwargs"] = {
+                    "endpoint_url": self.downloader.config.s3_endpoint
+                }
+            if "aws_access_key_id" in auth:
+                auth_kwargs["key"] = auth["aws_access_key_id"]
+            if "aws_secret_access_key" in auth:
+                auth_kwargs["secret"] = auth["aws_secret_access_key"]
+            if "aws_session_token" in auth:
+                auth_kwargs["token"] = auth["aws_session_token"]
+            if "profile_name" in auth:
+                auth_kwargs["profile"] = auth["profile_name"]
+            return {"path": url, **auth_kwargs}
+
+        # update url and headers with auth
+        req = PreparedRequest()
+        req.url = url
+        req.headers = headers
+
+        auth_req = auth(req) if auth else req
+
+        return {"path": auth_req.url, "headers": auth_req.headers}
+
+    def get_file_obj(
+        self,
+        asset_key: Optional[str] = None,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    ) -> OpenFile:
+        """Open data using fsspec
+
+        :param asset_key: (optional) key of the asset. If not specified the whole
+                          product will be opened
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :returns: product data file object
+        """
+        storage_options = self._get_storage_options(asset_key, wait, timeout)
+
+        path = storage_options.pop("path", None)
+        if path is None:
+            raise UnsupportedDatasetAddressScheme(f"Could not get {self} path")
+
+        protocol = fsspec.utils.get_protocol(path)
+
+        fs = fsspec.filesystem(protocol, **storage_options)
+        return fs.open(path=path)
+
+    def to_xarray(
+        self,
+        asset_key: Optional[str] = None,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+        roles=["data"],
+        **xarray_kwargs: dict[str, Any],
+    ) -> XarrayDict:
+        """
+        Return product data as a dictionary of :class:`xarray.Dataset`.
+
+        :param asset_key: (optional) key of the asset. If not specified the whole
+                          product data will be retrieved
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :param roles: (optional) roles of assets that must be fetched
+        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :returns: a dictionary of :class:`xarray.Dataset`
+        """
+        if asset_key is None and len(self.assets) > 0:
+            # assets
+
+            # have roles been set in assets ?
+            roles_exist = any("roles" in a for a in self.assets.values())
+
+            xd = XarrayDict()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = (
+                    executor.submit(self.to_xarray, key, wait, timeout, **xarray_kwargs)
+                    for key, asset in self.assets.items()
+                    if roles
+                    and asset.get("roles")
+                    and any(r in asset["roles"] for r in roles)
+                    or not roles
+                    or not roles_exist
+                )
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        future_xd = future.result()
+                        xd.update(**future_xd)
+                    except DatasetCreationError as e:
+                        logger.debug(e)
+
+            if xd:
+                return xd
+
+        # single file
+        try:
+            file = self.get_file_obj(asset_key, wait, timeout)
+            gdal_env = self._get_rio_env(getattr(file, "full_name", file.path))
+            with rasterio.Env(**gdal_env):
+                ds = try_open_dataset(file, **xarray_kwargs)
+            # set attributes
+            ds.attrs.update(**self.properties)
+            xd_key = asset_key or "data"
+            xd = XarrayDict({xd_key: ds})
+            xd._files[xd_key] = file
+            return xd
+
+        except (
+            UnsupportedDatasetAddressScheme,
+            OSError,
+            DatasetCreationError,
+        ) as e:
+            logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
+
+            # download the file and try again with local files
+            path = self.download(
+                asset=asset_key, wait=wait, timeout=timeout, extract=True
+            )
+
+            if asset_key is not None:
+                # path is not asset-specific, find asset path
+                # TODO: make download return asset path
+                basename = (
+                    urlparse(self.assets[asset_key]["href"])
+                    .path.strip("/")
+                    .split("/")[-1]
+                )
+                try:
+                    path = str(next(Path(path).rglob(basename)))
+                except StopIteration:
+                    logger.debug(f"{basename} not found in {path}")
+
+            xd = build_local_xarray_dict(path, **xarray_kwargs)
+            if not xd:
+                raise DatasetCreationError(
+                    f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
+                )
+            # set attributes
+            for k in xd.keys():
+                xd[k].attrs.update(**self.properties)
+            return xd
