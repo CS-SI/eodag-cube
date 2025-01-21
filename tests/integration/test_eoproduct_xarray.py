@@ -17,7 +17,6 @@
 # limitations under the License.
 
 import os
-import sys
 from pathlib import Path
 
 import xarray as xr
@@ -50,17 +49,10 @@ class TestEOProductXarray(EODagTestCase):
         with product.to_xarray() as xarray_dict:
 
             self.assertIsInstance(xarray_dict, XarrayDict)
-            # cfgrib only available for python <= 3.9
-            if sys.version_info.minor <= 9:
-                self.assertEqual(len(xarray_dict), 3)
-            else:
-                self.assertEqual(len(xarray_dict), 2)
+            self.assertEqual(len(xarray_dict), 3)
+
             for key, value in xarray_dict.items():
-                # cfgrib only available for python <= 3.9
-                if sys.version_info.minor <= 9:
-                    self.assertIn(Path(key).suffix, {".nc", ".grib", ".jp2"})
-                else:
-                    self.assertIn(Path(key).suffix, {".nc", ".jp2"})
+                self.assertIn(Path(key).suffix, {".nc", ".grib", ".jp2"})
                 self.assertIsInstance(value, xr.Dataset)
                 # properties are a included in attrs
                 self.assertLessEqual(product.properties.items(), value.attrs.items())
