@@ -51,6 +51,11 @@ class TestEOProductXarray(EODagTestCase):
             self.assertIsInstance(xarray_dict, XarrayDict)
             self.assertEqual(len(xarray_dict), 3)
 
+            sorted_keys = sorted(xarray_dict.keys())
+            # sort
+            xarray_dict.sort()
+            self.assertEqual(sorted_keys, list(xarray_dict.keys()))
+
             for key, value in xarray_dict.items():
                 self.assertIn(Path(key).suffix, {".nc", ".grib", ".jp2"})
                 self.assertIsInstance(value, xr.Dataset)
@@ -60,3 +65,14 @@ class TestEOProductXarray(EODagTestCase):
         # check that with statement closed all files
         for file in xarray_dict._files.values():
             self.assertTrue(file.closed)
+
+        # check representations
+        xd_repr = xarray_dict.__repr__()
+        self.assertIsInstance(xd_repr, str)
+        self.assertTrue(xd_repr.startswith("{"))
+        self.assertTrue(xd_repr.endswith("}"))
+        self.assertIn("Dataset", xd_repr)
+        xd_repr_html = xarray_dict._repr_html_()
+        self.assertIsInstance(xd_repr_html, str)
+        self.assertTrue(xd_repr_html.startswith("<table"))
+        self.assertTrue(xd_repr_html.endswith("</tbody></table>"))
