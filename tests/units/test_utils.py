@@ -163,7 +163,7 @@ class TestXarray(unittest.TestCase):
     @mock.patch(
         "eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"]
     )
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_local(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # local file : let xarray guess engine
@@ -187,7 +187,7 @@ class TestXarray(unittest.TestCase):
                 ds = try_open_dataset(file, foo="bar", baz="qux")
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["cfgrib"])
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_remote_grib(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # remote file + grib
@@ -202,7 +202,7 @@ class TestXarray(unittest.TestCase):
             try_open_dataset(file, foo="bar", baz="qux")
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["cfgrib"])
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_local_grib(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # local file + grib
@@ -223,7 +223,7 @@ class TestXarray(unittest.TestCase):
     @mock.patch(
         "eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"]
     )
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_remote_nc(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # remote file + nc
@@ -242,7 +242,7 @@ class TestXarray(unittest.TestCase):
             )
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["rasterio"])
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_remote_jp2(self, mock_open, mock_guess_engines):
         """try_open_dataset must call open_rasterio with appropriate args"""
         # remote file + nc
