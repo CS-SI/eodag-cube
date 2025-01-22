@@ -62,7 +62,7 @@ class TestEOProduct(EODagTestCase):
         product = EOProduct(
             self.provider, self.eoproduct_props, productType=product_type
         )
-        self.assertIsInstance(product.driver, Sentinel2L1C)
+        self.assertIsInstance(product.driver.legacy, Sentinel2L1C)
 
     def test_get_data_local_product_ok(self):
         """A call to get_data on a product present in the local filesystem must succeed"""  # noqa

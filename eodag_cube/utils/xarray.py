@@ -19,15 +19,11 @@
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import fsspec
 import rioxarray
 import xarray as xr
 
-from eodag_cube.types import XarrayDict
 from eodag_cube.utils import fsspec_file_extension
 from eodag_cube.utils.exceptions import DatasetCreationError
 
@@ -141,37 +137,3 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     raise DatasetCreationError(
         f"None of the engines {engines} could open the dataset at {file.path}."
     )
-
-
-def build_local_xarray_dict(
-    local_path: str, **xarray_kwargs: dict[str, Any]
-) -> XarrayDict:
-    """Build XarrayDict for local data
-
-    :param local_path: local path to scan for data
-    :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
-    :returns: a dictionary of :class:`xarray.Dataset`
-    """
-    xarray_dict = XarrayDict()
-    fs = fsspec.filesystem("file")
-
-    if os.path.isfile(local_path):
-        files = [
-            local_path,
-        ]
-    else:
-        files = list(Path(local_path).rglob("*"))
-
-    for file_str in files:
-        if not os.path.isfile(file_str):
-            continue
-        file = fs.open(file_str)
-        try:
-            ds = try_open_dataset(file, **xarray_kwargs)
-            key = os.path.relpath(file_str, local_path)
-            xarray_dict[key] = ds
-            xarray_dict._files[key] = file
-        except DatasetCreationError as e:
-            logger.debug(e)
-
-    return xarray_dict

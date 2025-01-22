@@ -83,7 +83,7 @@ class TestEOProductDriverStacAssets(EODagTestCase):
 
     def test_driver_set_stac_assets(self):
         """The appropriate driver must have been set"""
-        self.assertIsInstance(self.product.driver, StacAssets)
+        self.assertIsInstance(self.product.driver.legacy, StacAssets)
 
     def test_driver_get_local_dataset_address_bad_band(self):
         """Driver must raise AddressNotFound if non existent band is requested"""

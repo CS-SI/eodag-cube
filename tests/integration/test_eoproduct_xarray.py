@@ -57,7 +57,7 @@ class TestEOProductXarray(EODagTestCase):
             self.assertEqual(sorted_keys, list(xarray_dict.keys()))
 
             for key, value in xarray_dict.items():
-                self.assertIn(Path(key).suffix, {".nc", ".grib", ".jp2"})
+                self.assertIn(Path(key).suffix, {".nc", ".grib", ""})
                 self.assertIsInstance(value, xr.Dataset)
                 # properties are a included in attrs
                 self.assertLessEqual(product.properties.items(), value.attrs.items())

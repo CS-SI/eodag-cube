@@ -68,6 +68,10 @@ class Sentinel2L1C(DatasetDriver):
         :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
         :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
+        # legacy driver usage if defined
+        if legacy_driver := getattr(self, "legacy", None):
+            return legacy_driver.get_data_address(eo_product, band)
+
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
             top_level_mtd = os.path.join(

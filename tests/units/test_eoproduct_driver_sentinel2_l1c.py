@@ -45,7 +45,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
 
     def test_driver_set_stac_assets(self):
         """The appropriate driver must have been set"""
-        self.assertIsInstance(self.product.driver, Sentinel2L1C)
+        self.assertIsInstance(self.product.driver.legacy, Sentinel2L1C)
 
     def test_driver_get_local_dataset_address_bad_band(self):
         """Driver must raise AddressNotFound if non existent band is requested"""

@@ -28,15 +28,14 @@ from eodag import config
 from eodag.api.product import EOProduct
 from eodag.api.product.drivers.base import NoDriver
 from eodag.config import PluginConfig
-from eodag_cube.api.product.drivers.generic import GenericDriver
-from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
-from eodag_cube.api.product.drivers.stac_assets import StacAssets
+from eodag.api.product.drivers.generic import GenericDriver
+from eodag.api.product.drivers.sentinel2_l1c import Sentinel2L1C
+from eodag.api.product.drivers.stac_assets import StacAssets
 from eodag_cube.utils import fsspec_file_headers, fsspec_file_extension
 from eodag_cube.utils.exceptions import DatasetCreationError
 from eodag_cube.utils.xarray import (
     guess_engines,
     try_open_dataset,
-    build_local_xarray_dict,
 )
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.aws_auth import AwsAuth
