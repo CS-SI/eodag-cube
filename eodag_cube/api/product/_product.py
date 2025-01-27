@@ -150,7 +150,7 @@ class EOProduct(EOProduct_core):
         fail_value = xr.DataArray(np.empty(0))
         try:
             logger.debug("Getting data address")
-            dataset_address = self.driver.get_data_address(self, band)
+            dataset_address = self.driver.legacy.get_data_address(self, band)
         except UnsupportedDatasetAddressScheme:
             logger.warning(
                 "Eodag does not support getting data from distant sources by now. "
@@ -174,7 +174,7 @@ class EOProduct(EOProduct_core):
                 return fail_value
             if not path_of_downloaded_file:
                 return fail_value
-            dataset_address = self.driver.get_data_address(self, band)
+            dataset_address = self.driver.legacy.get_data_address(self, band)
 
         clip_geom = (
             get_geometry_from_various(geometry=extent) if extent else self.geometry

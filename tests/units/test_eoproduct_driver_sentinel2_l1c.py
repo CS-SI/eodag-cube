@@ -58,7 +58,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         """Driver returns a good address for an existing band"""
         with self._filesystem_product() as product:
             band = "B01"
-            address = self.product.driver.get_data_address(product, band)
+            address = self.product.driver.legacy.get_data_address(product, band)
             self.assertEqual(
                 os.path.normcase(address), os.path.normcase(self.local_band_file)
             )
@@ -69,7 +69,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         with self._remote_product_s3() as product:
             self.create_mock_s3_bucket_and_product()
             band = "B01"
-            address = self.product.driver.get_data_address(product, band)
+            address = self.product.driver.legacy.get_data_address(product, band)
             self.assertEqual(
                 address, "s3://sentinel-s2-l1c/tiles/31/T/DJ/2018/1/28/0/B01.jp2"
             )
@@ -80,7 +80,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         band = "B01"
         self.assertRaises(
             UnsupportedDatasetAddressScheme,
-            self.product.driver.get_data_address,
+            self.product.driver.legacy.get_data_address,
             self.product,
             band,
         )
