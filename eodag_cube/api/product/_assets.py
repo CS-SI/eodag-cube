@@ -27,8 +27,11 @@ from eodag.api.product._assets import AssetsDict as AssetsDict_core
 from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT, _deprecated
 
 if TYPE_CHECKING:
+    from contextlib import nullcontext
+
     from fsspec.core import OpenFile
     from rasterio.enums import Resampling
+    from rasterio.env import Env
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
 
@@ -127,6 +130,13 @@ class Asset(Asset_core):
         :returns: asset data file object
         """
         return self.product.get_file_obj(self.key, wait, timeout)
+
+    def rio_env(self) -> Union[Env, nullcontext]:
+        """Get rasterio environment
+
+        :return: The rasterio environment
+        """
+        return self.product.rio_env(self.get("href"))
 
     def to_xarray(
         self,

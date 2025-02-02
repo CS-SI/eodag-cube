@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
@@ -230,12 +230,12 @@ class EOProduct(EOProduct_core):
             return fail_value
 
     def _get_rio_env(self, dataset_address: str) -> dict[str, Any]:
-        """Get rasterio environement variables needed for data access.
+        """Get rasterio environment variables needed for data access.
 
         :param dataset_address: address of the data to read
         :type dataset_address: str
 
-        :return: The rasterio environement variables
+        :return: The rasterio environment variables
         :rtype: Dict[str, Any]
         """
         product_location_scheme = dataset_address.split("://")[0]
@@ -340,6 +340,25 @@ class EOProduct(EOProduct_core):
 
         fs = fsspec.filesystem(protocol, **storage_options)
         return fs.open(path=path)
+
+    def rio_env(
+        self, dataset_address: Optional[str] = None
+    ) -> Union[rasterio.env.Env, nullcontext]:
+        """Get rasterio environment
+
+        :param dataset_address: address of the data to read
+        :return: The rasterio environment
+        """
+        if dataset_address:
+            if env_dict := self._get_rio_env(dataset_address):
+                return rasterio.Env(**env_dict)
+            return nullcontext()
+
+        for asset in self.assets.values():
+            cm = asset.rio_env()
+            if not isinstance(cm, nullcontext):
+                return cm
+        return nullcontext()
 
     def to_xarray(
         self,

@@ -107,10 +107,16 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
             if engine == "rasterio":
                 # prevents to read all file in memory since rasterio 1.4.0
                 # https://github.com/rasterio/rasterio/issues/3232
-                opener = file.fs.open if "s3" not in file.fs.protocol else None
+                opener = (
+                    file.fs.open
+                    if not any(p in file.fs.protocol for p in ["local", "s3"])
+                    else None
+                )
                 da = rioxarray.open_rasterio(
                     getattr(file, "full_name", file.path),
                     opener=opener,
+                    # default value from RasterioBackend
+                    mask_and_scale=True,
                     **xarray_kwargs,
                 )
                 ds = da.to_dataset(name="band_data")
