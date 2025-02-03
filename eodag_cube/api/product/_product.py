@@ -17,8 +17,8 @@
 # limitations under the License.
 from __future__ import annotations
 
-import os
 import logging
+import os
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
