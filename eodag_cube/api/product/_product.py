@@ -29,6 +29,7 @@ import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
+from fsspec.core import OpenFile
 from rasterio.vrt import WarpedVRT
 from requests import PreparedRequest
 
@@ -48,7 +49,7 @@ from eodag_cube.utils.exceptions import DatasetCreationError
 from eodag_cube.utils.xarray import build_local_xarray_dict, try_open_dataset
 
 if TYPE_CHECKING:
-    from fsspec.core import OpenFile
+    # from fsspec.core import OpenFile
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
@@ -338,6 +339,10 @@ class EOProduct(EOProduct_core):
 
         protocol = fsspec.utils.get_protocol(path)
 
+        if protocol == "zip+s3":
+            fs = fsspec.filesystem("s3", **storage_options)
+            return OpenFile(fs, path)
+
         fs = fsspec.filesystem(protocol, **storage_options)
         return fs.open(path=path)
 
@@ -411,7 +416,13 @@ class EOProduct(EOProduct_core):
         # single file
         try:
             file = self.get_file_obj(asset_key, wait, timeout)
-            gdal_env = self._get_rio_env(getattr(file, "full_name", file.path))
+            # fix messy protocol with zip+s3 and ignore zip content after "!"
+            base_file_for_env = (
+                getattr(file, "full_name", file.path)
+                .replace("s3://zip+s3://", "zip+s3://")
+                .split("!")[0]
+            )
+            gdal_env = self._get_rio_env(base_file_for_env)
             with rasterio.Env(**gdal_env):
                 ds = try_open_dataset(file, **xarray_kwargs)
             # set attributes
