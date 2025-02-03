@@ -1,8 +1,16 @@
 Release history
 ---------------
 
+0.6.0b2 (2025-02-03)
+++++++++++++++++++++
+
+- Drivers to EODAG core for assets uniformization (#83)
+- ``EOProduct.rio_env`` method (#85)
+- Improved ``XarrayDict`` representation and sorted keys (#81)
+- Various minor fixes and improvements (#82)(#84)(#86)
+
 0.6.0b1 (2025-01-13)
-++++++++++++++++++
+++++++++++++++++++++
 
 * New ``get_file_obj()`` and ``to_xarray()`` methods, making ``get_data()`` deprecated (#79)
 * s3 endpoint fix (#70)
