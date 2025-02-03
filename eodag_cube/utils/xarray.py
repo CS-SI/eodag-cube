@@ -101,7 +101,10 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     for engine in engines:
         # re-open file to prevent I/O operation on closed file
         # (and `closed` attr does not seem up-to-date)
-        file = file.fs.open(path=file.path)
+        try:
+            file = file.fs.open(path=file.path)
+        except Exception as e:
+            logger.debug(f"Could not re-open file: {str(e)}")
 
         try:
             if engine == "rasterio":
@@ -112,8 +115,12 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
                     if not any(p in file.fs.protocol for p in ["local", "s3"])
                     else None
                 )
+                # fix messy protocol with zip+s3
+                clean_url = getattr(file, "full_name", file.path).replace(
+                    "s3://zip+s3://", "zip+s3://"
+                )
                 da = rioxarray.open_rasterio(
-                    getattr(file, "full_name", file.path),
+                    clean_url,
                     opener=opener,
                     # default value from RasterioBackend
                     mask_and_scale=True,
