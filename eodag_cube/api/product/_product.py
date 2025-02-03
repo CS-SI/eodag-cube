@@ -18,7 +18,8 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
+import os
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
@@ -29,6 +30,7 @@ import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
+from fsspec.core import OpenFile
 from rasterio.vrt import WarpedVRT
 from requests import PreparedRequest
 
@@ -45,10 +47,10 @@ from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressSchem
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
-from eodag_cube.utils.xarray import build_local_xarray_dict, try_open_dataset
+from eodag_cube.utils.xarray import try_open_dataset
 
 if TYPE_CHECKING:
-    from fsspec.core import OpenFile
+    # from fsspec.core import OpenFile
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
     from xarray import DataArray
@@ -148,7 +150,7 @@ class EOProduct(EOProduct_core):
         fail_value = xr.DataArray(np.empty(0))
         try:
             logger.debug("Getting data address")
-            dataset_address = self.driver.get_data_address(self, band)
+            dataset_address = self.driver.legacy.get_data_address(self, band)
         except UnsupportedDatasetAddressScheme:
             logger.warning(
                 "Eodag does not support getting data from distant sources by now. "
@@ -172,7 +174,7 @@ class EOProduct(EOProduct_core):
                 return fail_value
             if not path_of_downloaded_file:
                 return fail_value
-            dataset_address = self.driver.get_data_address(self, band)
+            dataset_address = self.driver.legacy.get_data_address(self, band)
 
         clip_geom = (
             get_geometry_from_various(geometry=extent) if extent else self.geometry
@@ -230,12 +232,12 @@ class EOProduct(EOProduct_core):
             return fail_value
 
     def _get_rio_env(self, dataset_address: str) -> dict[str, Any]:
-        """Get rasterio environement variables needed for data access.
+        """Get rasterio environment variables needed for data access.
 
         :param dataset_address: address of the data to read
         :type dataset_address: str
 
-        :return: The rasterio environement variables
+        :return: The rasterio environment variables
         :rtype: Dict[str, Any]
         """
         product_location_scheme = dataset_address.split("://")[0]
@@ -338,15 +340,71 @@ class EOProduct(EOProduct_core):
 
         protocol = fsspec.utils.get_protocol(path)
 
+        if protocol == "zip+s3":
+            fs = fsspec.filesystem("s3", **storage_options)
+            return OpenFile(fs, path)
+
         fs = fsspec.filesystem(protocol, **storage_options)
         return fs.open(path=path)
+
+    def rio_env(
+        self, dataset_address: Optional[str] = None
+    ) -> Union[rasterio.env.Env, nullcontext]:
+        """Get rasterio environment
+
+        :param dataset_address: address of the data to read
+        :return: The rasterio environment
+        """
+        if dataset_address:
+            if env_dict := self._get_rio_env(dataset_address):
+                return rasterio.Env(**env_dict)
+            return nullcontext()
+
+        for asset in self.assets.values():
+            cm = asset.rio_env()
+            if not isinstance(cm, nullcontext):
+                return cm
+        return nullcontext()
+
+    def _build_local_xarray_dict(
+        self, local_path: str, **xarray_kwargs: dict[str, Any]
+    ) -> XarrayDict:
+        """Build XarrayDict for local data
+
+        :param local_path: local path to scan for data
+        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :returns: a dictionary of :class:`xarray.Dataset`
+        """
+        xarray_dict = XarrayDict()
+        fs = fsspec.filesystem("file")
+
+        if os.path.isfile(local_path):
+            files = [
+                local_path,
+            ]
+        else:
+            files = list(Path(local_path).rglob("*"))
+
+        for file_path in files:
+            if not os.path.isfile(file_path):
+                continue
+            file = fs.open(file_path)
+            try:
+                ds = try_open_dataset(file, **xarray_kwargs)
+                key, _ = self.driver.guess_asset_key_and_roles(str(file_path), self)
+                xarray_dict[key] = ds
+                xarray_dict._files[key] = file
+            except DatasetCreationError as e:
+                logger.debug(e)
+
+        return xarray_dict
 
     def to_xarray(
         self,
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-        roles=["data"],
+        roles=["data", "data-mask"],
         **xarray_kwargs: dict[str, Any],
     ) -> XarrayDict:
         """
@@ -387,12 +445,19 @@ class EOProduct(EOProduct_core):
                         logger.debug(e)
 
             if xd:
+                xd.sort()
                 return xd
 
         # single file
         try:
             file = self.get_file_obj(asset_key, wait, timeout)
-            gdal_env = self._get_rio_env(getattr(file, "full_name", file.path))
+            # fix messy protocol with zip+s3 and ignore zip content after "!"
+            base_file_for_env = (
+                getattr(file, "full_name", file.path)
+                .replace("s3://zip+s3://", "zip+s3://")
+                .split("!")[0]
+            )
+            gdal_env = self._get_rio_env(base_file_for_env)
             with rasterio.Env(**gdal_env):
                 ds = try_open_dataset(file, **xarray_kwargs)
             # set attributes
@@ -427,7 +492,7 @@ class EOProduct(EOProduct_core):
                 except StopIteration:
                     logger.debug(f"{basename} not found in {path}")
 
-            xd = build_local_xarray_dict(path, **xarray_kwargs)
+            xd = self._build_local_xarray_dict(path, **xarray_kwargs)
             if not xd:
                 raise DatasetCreationError(
                     f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
@@ -435,4 +500,7 @@ class EOProduct(EOProduct_core):
             # set attributes
             for k in xd.keys():
                 xd[k].attrs.update(**self.properties)
+            # sort by keys
+            xd.sort()
+
             return xd

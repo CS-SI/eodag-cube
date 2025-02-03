@@ -48,7 +48,8 @@ class TestEOProductDriverGeneric(EODagTestCase):
 
     def test_driver_set_stac_assets(self):
         """The appropriate driver must have been set"""
-        self.assertIsInstance(self.product.driver, GenericDriver)
+        self.assertTrue(hasattr(self.product.driver, "legacy"))
+        self.assertIsInstance(self.product.driver.legacy, GenericDriver)
 
     def test_driver_get_local_dataset_address_bad_band(self):
         """Driver must raise AddressNotFound if non existent band is requested"""
@@ -61,7 +62,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
         """Driver returns a good address for an existing band"""
         with self._filesystem_product() as product:
             band = "B01"
-            address = self.product.driver.get_data_address(product, band)
+            address = self.product.driver.legacy.get_data_address(product, band)
             self.assertEqual(
                 os.path.normcase(address), os.path.normcase(self.local_band_file)
             )
@@ -70,7 +71,9 @@ class TestEOProductDriverGeneric(EODagTestCase):
         """Driver returns a good address for a grib file"""
         with self._grib_product() as product:
 
-            address = self.product.driver.get_data_address(product, TEST_GRIB_FILENAME)
+            address = self.product.driver.legacy.get_data_address(
+                product, TEST_GRIB_FILENAME
+            )
 
             self.assertEqual(
                 os.path.normcase(address), os.path.normcase(TEST_GRIB_FILE_PATH)
@@ -82,7 +85,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
         band = "B01"
         self.assertRaises(
             UnsupportedDatasetAddressScheme,
-            self.product.driver.get_data_address,
+            self.product.driver.legacy.get_data_address,
             self.product,
             band,
         )

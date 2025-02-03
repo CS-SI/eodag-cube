@@ -55,8 +55,6 @@ jobs:
     - name: Enable long paths on Windows and Git
       if: runner.os == 'Windows'
       run: git config --global core.longpaths true
-    - name: Install from eodag develop branch
-      run: pip install git+https://github.com/CS-SI/eodag.git@develop
     - name: Install other deps
       run: python -m pip install .[dev]
     - name: Test with pytest

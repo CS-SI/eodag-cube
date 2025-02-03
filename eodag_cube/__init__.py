@@ -17,9 +17,9 @@
 # limitations under the License.
 """EODAG-cube: Data access for EODAG."""
 
-__title__ = "eodag-cube"
+__title__ = "eodag_cube"
 __description__ = "Data access for EODAG"
-__version__ = "0.6.0b1"
+__version__ = "0.6.0b2"
 __author__ = "CS GROUP - France"
 __author_email__ = "eodag@csgroup.space"
 __url__ = "https://github.com/CS-SI/eodag-cube"

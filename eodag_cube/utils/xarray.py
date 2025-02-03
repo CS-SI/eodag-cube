@@ -19,15 +19,11 @@
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import fsspec
 import rioxarray
 import xarray as xr
 
-from eodag_cube.types import XarrayDict
 from eodag_cube.utils import fsspec_file_extension
 from eodag_cube.utils.exceptions import DatasetCreationError
 
@@ -101,16 +97,29 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     for engine in engines:
         # re-open file to prevent I/O operation on closed file
         # (and `closed` attr does not seem up-to-date)
-        file = file.fs.open(path=file.path)
+        try:
+            file = file.fs.open(path=file.path)
+        except Exception as e:
+            logger.debug(f"Could not re-open file: {str(e)}")
 
         try:
             if engine == "rasterio":
                 # prevents to read all file in memory since rasterio 1.4.0
                 # https://github.com/rasterio/rasterio/issues/3232
-                opener = file.fs.open if "s3" not in file.fs.protocol else None
+                opener = (
+                    file.fs.open
+                    if not any(p in file.fs.protocol for p in ["local", "s3"])
+                    else None
+                )
+                # fix messy protocol with zip+s3
+                clean_url = getattr(file, "full_name", file.path).replace(
+                    "s3://zip+s3://", "zip+s3://"
+                )
                 da = rioxarray.open_rasterio(
-                    getattr(file, "full_name", file.path),
+                    clean_url,
                     opener=opener,
+                    # default value from RasterioBackend
+                    mask_and_scale=True,
                     **xarray_kwargs,
                 )
                 ds = da.to_dataset(name="band_data")
@@ -128,37 +137,3 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     raise DatasetCreationError(
         f"None of the engines {engines} could open the dataset at {file.path}."
     )
-
-
-def build_local_xarray_dict(
-    local_path: str, **xarray_kwargs: dict[str, Any]
-) -> XarrayDict:
-    """Build XarrayDict for local data
-
-    :param local_path: local path to scan for data
-    :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
-    :returns: a dictionary of :class:`xarray.Dataset`
-    """
-    xarray_dict = XarrayDict()
-    fs = fsspec.filesystem("file")
-
-    if os.path.isfile(local_path):
-        files = [
-            local_path,
-        ]
-    else:
-        files = list(Path(local_path).rglob("*"))
-
-    for file_str in files:
-        if not os.path.isfile(file_str):
-            continue
-        file = fs.open(file_str)
-        try:
-            ds = try_open_dataset(file, **xarray_kwargs)
-            key = os.path.relpath(file_str, local_path)
-            xarray_dict[key] = ds
-            xarray_dict._files[key] = file
-        except DatasetCreationError as e:
-            logger.debug(e)
-
-    return xarray_dict

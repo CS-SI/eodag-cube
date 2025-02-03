@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import unittest
 
 import fsspec.implementations
@@ -158,15 +157,13 @@ class TestXarray(unittest.TestCase):
         file = OpenFile(fs, "https://foo/bar.nc")
         self.assertIn("h5netcdf", guess_engines(file))
 
-        # cfgrib only available for python <= 3.9
-        if sys.version_info.minor <= 9:
-            file = OpenFile(fs, "https://foo/bar.grib")
-            self.assertIn("cfgrib", guess_engines(file))
+        file = OpenFile(fs, "https://foo/bar.grib")
+        self.assertIn("cfgrib", guess_engines(file))
 
     @mock.patch(
         "eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"]
     )
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_local(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # local file : let xarray guess engine
@@ -189,11 +186,8 @@ class TestXarray(unittest.TestCase):
             ):
                 ds = try_open_dataset(file, foo="bar", baz="qux")
 
-    @unittest.skipIf(
-        sys.version_info.minor > 9, "cfgrib only available for python <= 3.9"
-    )
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["cfgrib"])
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_remote_grib(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # remote file + grib
@@ -207,11 +201,8 @@ class TestXarray(unittest.TestCase):
         ):
             try_open_dataset(file, foo="bar", baz="qux")
 
-    @unittest.skipIf(
-        sys.version_info.minor > 9, "cfgrib only available for python <= 3.9"
-    )
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["cfgrib"])
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_local_grib(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # local file + grib
@@ -232,7 +223,7 @@ class TestXarray(unittest.TestCase):
     @mock.patch(
         "eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"]
     )
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_remote_nc(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
         # remote file + nc
@@ -251,7 +242,7 @@ class TestXarray(unittest.TestCase):
             )
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["rasterio"])
-    @mock.patch("eodag_cube.utils.xarray.fsspec.open")
+    @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_remote_jp2(self, mock_open, mock_guess_engines):
         """try_open_dataset must call open_rasterio with appropriate args"""
         # remote file + nc
@@ -266,5 +257,5 @@ class TestXarray(unittest.TestCase):
             ds = try_open_dataset(file, foo="bar", baz="qux")
             self.assertIsInstance(ds, xr.Dataset)
             mock_open_rio.assert_called_once_with(
-                file.path, opener=mock_open, foo="bar", baz="qux"
+                file.path, opener=mock_open, mask_and_scale=True, foo="bar", baz="qux"
             )

@@ -83,7 +83,7 @@ class TestEOProductDriverStacAssets(EODagTestCase):
 
     def test_driver_set_stac_assets(self):
         """The appropriate driver must have been set"""
-        self.assertIsInstance(self.product.driver, StacAssets)
+        self.assertIsInstance(self.product.driver.legacy, StacAssets)
 
     def test_driver_get_local_dataset_address_bad_band(self):
         """Driver must raise AddressNotFound if non existent band is requested"""
@@ -98,16 +98,16 @@ class TestEOProductDriverStacAssets(EODagTestCase):
         """Driver returns a good address for an existing band"""
         with self._filesystem_product() as product:
             band = "b01"
-            address = self.product.driver.get_data_address(product, band)
+            address = self.product.driver.legacy.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
             band = "t31tdh_20180101t124911_b01"
-            address = self.product.driver.get_data_address(product, band)
+            address = self.product.driver.legacy.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
             band = "T31TDH_20180101T124911_B01.jp2"
-            address = self.product.driver.get_data_address(product, band)
+            address = self.product.driver.legacy.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
             band = "T31TDH.*B01.*"
-            address = self.product.driver.get_data_address(product, band)
+            address = self.product.driver.legacy.get_data_address(product, band)
             self.assertEqual(address, self.local_band_file)
 
     def test_asset_get_data(self):

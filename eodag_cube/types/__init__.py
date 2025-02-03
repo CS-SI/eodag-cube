@@ -58,6 +58,25 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
             )
         )
 
+    def _formatted_title_raw(self, v):
+        return (
+            str(v)
+            .split("\n")[0]
+            .replace(
+                ">",
+                f"> ({self._format_dims(v)})",
+            )
+        )
+
+    def __repr__(self) -> str:
+        return (
+            "{"
+            + ",\n".join(
+                [f"'{k}': {self._formatted_title_raw(v)}" for k, v in self.items()]
+            )
+            + "}"
+        )
+
     def _repr_html_(self, embedded: bool = False) -> str:
 
         thead = (
@@ -94,3 +113,7 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
             ds.close()
             if k in self._files:
                 self._files[k].close()
+
+    def sort(self) -> None:
+        """In place sort items by keys"""
+        self.data = dict(sorted(self.data.items()))
