@@ -257,5 +257,5 @@ class TestXarray(unittest.TestCase):
             ds = try_open_dataset(file, foo="bar", baz="qux")
             self.assertIsInstance(ds, xr.Dataset)
             mock_open_rio.assert_called_once_with(
-                file.path, opener=mock_open, foo="bar", baz="qux"
+                file.path, opener=mock_open, mask_and_scale=True, foo="bar", baz="qux"
             )
