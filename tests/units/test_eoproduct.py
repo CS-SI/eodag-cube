@@ -62,7 +62,7 @@ class TestEOProduct(EODagTestCase):
         product = EOProduct(
             self.provider, self.eoproduct_props, productType=product_type
         )
-        self.assertIsInstance(product.driver, Sentinel2L1C)
+        self.assertIsInstance(product.driver.legacy, Sentinel2L1C)
 
     def test_get_data_local_product_ok(self):
         """A call to get_data on a product present in the local filesystem must succeed"""  # noqa
@@ -72,23 +72,23 @@ class TestEOProduct(EODagTestCase):
         product = EOProduct(
             self.provider, self.eoproduct_props, productType=self.product_type
         )
-        product.driver = mock.MagicMock(spec_set=NoDriver())
-        product.driver.get_data_address.return_value = self.local_band_file
+        product.driver.legacy = mock.MagicMock(spec_set=NoDriver())
+        product.driver.legacy.get_data_address.return_value = self.local_band_file
 
         data, band = self.execute_get_data(product, give_back=("band",))
 
-        self.assertEqual(product.driver.get_data_address.call_count, 1)
-        product.driver.get_data_address.assert_called_with(product, band)
+        self.assertEqual(product.driver.legacy.get_data_address.call_count, 1)
+        product.driver.legacy.get_data_address.assert_called_with(product, band)
         self.assertIsInstance(data, xr.DataArray)
         self.assertNotEqual(data.values.size, 0)
 
     def test_get_data_local_grib_product_ok(self):
         """A call to get_data on a local product in GRIB format must succeed"""  # noqa
         product = EOProduct(self.provider, self.eoproduct_props)
-        product.driver = mock.MagicMock(spec_set=NoDriver())
-        product.driver.get_data_address.return_value = TEST_GRIB_FILE_PATH
+        product.driver.legacy = mock.MagicMock(spec_set=NoDriver())
+        product.driver.legacy.get_data_address.return_value = TEST_GRIB_FILE_PATH
         data = product.get_data(band=TEST_GRIB_FILENAME)
-        self.assertEqual(product.driver.get_data_address.call_count, 1)
+        self.assertEqual(product.driver.legacy.get_data_address.call_count, 1)
 
         self.assertIsInstance(data, xr.DataArray)
         self.assertEqual(data.attrs["GRIB_COMMENT"], "Temperature [C]")
@@ -105,8 +105,8 @@ class TestEOProduct(EODagTestCase):
                 raise UnsupportedDatasetAddressScheme
             return self.local_band_file
 
-        product.driver = mock.MagicMock(spec_set=NoDriver())
-        product.driver.get_data_address.side_effect = get_data_address
+        product.driver.legacy = mock.MagicMock(spec_set=NoDriver())
+        product.driver.legacy.get_data_address.side_effect = get_data_address
 
         mock_downloader = mock.MagicMock(
             spec_set=Download(
@@ -134,8 +134,8 @@ class TestEOProduct(EODagTestCase):
         product.register_downloader(mock_downloader, mock_authenticator.authenticate())
         data, band = self.execute_get_data(product, give_back=("band",))
 
-        self.assertEqual(product.driver.get_data_address.call_count, 2)
-        product.driver.get_data_address.assert_called_with(product, band)
+        self.assertEqual(product.driver.legacy.get_data_address.call_count, 2)
+        product.driver.legacy.get_data_address.assert_called_with(product, band)
         self.assertIsInstance(data, xr.DataArray)
         self.assertNotEqual(data.values.size, 0)
 
@@ -145,14 +145,16 @@ class TestEOProduct(EODagTestCase):
             self.provider, self.eoproduct_props, productType=self.product_type
         )
 
-        product.driver = mock.MagicMock(spec_set=NoDriver())
-        product.driver.get_data_address.side_effect = UnsupportedDatasetAddressScheme
+        product.driver.legacy = mock.MagicMock(spec_set=NoDriver())
+        product.driver.legacy.get_data_address.side_effect = (
+            UnsupportedDatasetAddressScheme
+        )
 
         self.assertRaises(RuntimeError, product.download)
 
         data = self.execute_get_data(product)
 
-        self.assertEqual(product.driver.get_data_address.call_count, 1)
+        self.assertEqual(product.driver.legacy.get_data_address.call_count, 1)
         self.assertIsInstance(data, xr.DataArray)
         self.assertEqual(data.values.size, 0)
 
@@ -162,8 +164,10 @@ class TestEOProduct(EODagTestCase):
             self.provider, self.eoproduct_props, productType=self.product_type
         )
 
-        product.driver = mock.MagicMock(spec_set=NoDriver())
-        product.driver.get_data_address.side_effect = UnsupportedDatasetAddressScheme
+        product.driver.legacy = mock.MagicMock(spec_set=NoDriver())
+        product.driver.legacy.get_data_address.side_effect = (
+            UnsupportedDatasetAddressScheme
+        )
 
         mock_downloader = mock.MagicMock(
             spec_set=Download(
@@ -184,8 +188,8 @@ class TestEOProduct(EODagTestCase):
 
         data, band = self.execute_get_data(product, give_back=("band",))
 
-        self.assertEqual(product.driver.get_data_address.call_count, 1)
-        product.driver.get_data_address.assert_called_with(product, band)
+        self.assertEqual(product.driver.legacy.get_data_address.call_count, 1)
+        product.driver.legacy.get_data_address.assert_called_with(product, band)
         self.assertIsInstance(data, xr.DataArray)
         self.assertEqual(data.values.size, 0)
 

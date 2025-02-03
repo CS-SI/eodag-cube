@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -46,7 +47,7 @@ from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressSchem
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
-from eodag_cube.utils.xarray import build_local_xarray_dict, try_open_dataset
+from eodag_cube.utils.xarray import try_open_dataset
 
 if TYPE_CHECKING:
     # from fsspec.core import OpenFile
@@ -149,7 +150,7 @@ class EOProduct(EOProduct_core):
         fail_value = xr.DataArray(np.empty(0))
         try:
             logger.debug("Getting data address")
-            dataset_address = self.driver.get_data_address(self, band)
+            dataset_address = self.driver.legacy.get_data_address(self, band)
         except UnsupportedDatasetAddressScheme:
             logger.warning(
                 "Eodag does not support getting data from distant sources by now. "
@@ -173,7 +174,7 @@ class EOProduct(EOProduct_core):
                 return fail_value
             if not path_of_downloaded_file:
                 return fail_value
-            dataset_address = self.driver.get_data_address(self, band)
+            dataset_address = self.driver.legacy.get_data_address(self, band)
 
         clip_geom = (
             get_geometry_from_various(geometry=extent) if extent else self.geometry
@@ -365,12 +366,45 @@ class EOProduct(EOProduct_core):
                 return cm
         return nullcontext()
 
+    def _build_local_xarray_dict(
+        self, local_path: str, **xarray_kwargs: dict[str, Any]
+    ) -> XarrayDict:
+        """Build XarrayDict for local data
+
+        :param local_path: local path to scan for data
+        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :returns: a dictionary of :class:`xarray.Dataset`
+        """
+        xarray_dict = XarrayDict()
+        fs = fsspec.filesystem("file")
+
+        if os.path.isfile(local_path):
+            files = [
+                local_path,
+            ]
+        else:
+            files = list(Path(local_path).rglob("*"))
+
+        for file_path in files:
+            if not os.path.isfile(file_path):
+                continue
+            file = fs.open(file_path)
+            try:
+                ds = try_open_dataset(file, **xarray_kwargs)
+                key, _ = self.driver.guess_asset_key_and_roles(str(file_path), self)
+                xarray_dict[key] = ds
+                xarray_dict._files[key] = file
+            except DatasetCreationError as e:
+                logger.debug(e)
+
+        return xarray_dict
+
     def to_xarray(
         self,
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-        roles=["data"],
+        roles=["data", "data-mask"],
         **xarray_kwargs: dict[str, Any],
     ) -> XarrayDict:
         """
@@ -411,6 +445,7 @@ class EOProduct(EOProduct_core):
                         logger.debug(e)
 
             if xd:
+                xd.sort()
                 return xd
 
         # single file
@@ -457,7 +492,7 @@ class EOProduct(EOProduct_core):
                 except StopIteration:
                     logger.debug(f"{basename} not found in {path}")
 
-            xd = build_local_xarray_dict(path, **xarray_kwargs)
+            xd = self._build_local_xarray_dict(path, **xarray_kwargs)
             if not xd:
                 raise DatasetCreationError(
                     f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
@@ -465,4 +500,7 @@ class EOProduct(EOProduct_core):
             # set attributes
             for k in xd.keys():
                 xd[k].attrs.update(**self.properties)
+            # sort by keys
+            xd.sort()
+
             return xd

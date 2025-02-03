@@ -36,7 +36,6 @@ from eodag_cube.utils.exceptions import DatasetCreationError
 from eodag_cube.utils.xarray import (
     guess_engines,
     try_open_dataset,
-    build_local_xarray_dict,
 )
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.aws_auth import AwsAuth
