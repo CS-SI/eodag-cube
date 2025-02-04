@@ -60,13 +60,13 @@ class Sentinel2L1C(DatasetDriver):
               example.
 
         :param eo_product: The product whom underlying dataset address is to be retrieved
-        :type eo_product: :class:`~eodag.api.product._product.EOProduct`
+        :type eo_product: :class:`eodag.api.product._product.EOProduct`
         :param band: The band to retrieve (e.g: 'B01')
         :type band: str
         :returns: An address for the dataset
         :rtype: str
-        :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
-        :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
+        :raises: :class:`eodag.utils.exceptions.AddressNotFound`
+        :raises: :class:`eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
         # legacy driver usage if defined
         if legacy_driver := getattr(self, "legacy", None):

@@ -71,9 +71,7 @@ class EOProduct(EOProduct_core):
     parameters that led to its creation.
 
     :param provider: The provider from which the product originates
-    :type provider: str
     :param properties: The metadata of the product
-    :type properties: dict
     :ivar product_type: The product type
     :vartype product_type: str
     :ivar location: The path to the product, either remote or local if downloaded
@@ -121,12 +119,9 @@ class EOProduct(EOProduct_core):
         """Retrieves all or part of the raster data abstracted by the :class:`EOProduct`
 
         :param band: The band of the dataset to retrieve (e.g.: 'B01')
-        :type band: str
         :param crs: (optional) The coordinate reference system in which the dataset should be returned
-        :type crs: str
         :param resolution: (optional) The resolution in which the dataset should be returned
                             (given in the unit of the crs)
-        :type resolution: float
         :param extent: (optional) The coordinates on which to zoom, matching the given CRS. Can be defined in
                     different ways (its bounds will be used):
 
@@ -138,14 +133,13 @@ class EOProduct(EOProduct_core):
                       ``[lonmin, latmin, lonmax, latmax]``
                     * with a WKT str
 
-        :type extent: Union[str, dict, shapely.geometry.base.BaseGeometry]
         :param resampling: (optional) Warp resampling algorithm passed to :class:`rasterio.vrt.WarpedVRT`
-        :type resampling: Resampling
-        :param rioxr_kwargs: kwargs passed to ``rioxarray.open_rasterio()``
-        :type rioxr_kwargs: Any
+        :param rioxr_kwargs: kwargs passed to :func:`rioxarray.open_rasterio`
         :returns: The numeric matrix corresponding to the sub dataset or an empty
                     array if unable to get the data
-        :rtype: xarray.DataArray
+
+        .. deprecated:: 0.6.0b1
+           Use the :meth:`eodag_cube.api.product._product.EOProduct.to_xarray` method instead.
         """
         fail_value = xr.DataArray(np.empty(0))
         try:
@@ -235,10 +229,7 @@ class EOProduct(EOProduct_core):
         """Get rasterio environment variables needed for data access.
 
         :param dataset_address: address of the data to read
-        :type dataset_address: str
-
         :return: The rasterio environment variables
-        :rtype: Dict[str, Any]
         """
         product_location_scheme = dataset_address.split("://")[0]
         if "s3" in product_location_scheme and hasattr(
@@ -369,10 +360,10 @@ class EOProduct(EOProduct_core):
     def _build_local_xarray_dict(
         self, local_path: str, **xarray_kwargs: dict[str, Any]
     ) -> XarrayDict:
-        """Build XarrayDict for local data
+        """Build :class:`eodag_cube.types.XarrayDict` for local data
 
         :param local_path: local path to scan for data
-        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
         xarray_dict = XarrayDict()
@@ -417,7 +408,7 @@ class EOProduct(EOProduct_core):
         :param timeout: (optional) If order is needed, maximum time in minutes before
                         stop checking order status
         :param roles: (optional) roles of assets that must be fetched
-        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
         if asset_key is None and len(self.assets) > 0:
