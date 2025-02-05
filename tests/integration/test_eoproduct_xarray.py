@@ -69,7 +69,7 @@ class TestEOProductXarray(EODagTestCase):
         # check representations
         xd_repr = xarray_dict.__repr__()
         self.assertIsInstance(xd_repr, str)
-        self.assertTrue(xd_repr.startswith("{"))
+        self.assertTrue(xd_repr.startswith("<XarrayDict> (3)\n{"))
         self.assertTrue(xd_repr.endswith("}"))
         self.assertIn("Dataset", xd_repr)
         xd_repr_html = xarray_dict._repr_html_()
