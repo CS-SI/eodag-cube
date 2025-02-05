@@ -55,7 +55,7 @@ def fsspec_file_headers(file: OpenFile) -> Optional[dict[str, Any]]:
         except requests.RequestException:
             pass
         else:
-            return resp.headers
+            return dict(resp.headers)
         # if HEAD method is not available, try to get a minimal part of the file
         try:
             resp = requests.get(file.path, **file_kwargs)
@@ -63,7 +63,7 @@ def fsspec_file_headers(file: OpenFile) -> Optional[dict[str, Any]]:
         except requests.RequestException:
             pass
         else:
-            return resp.headers
+            return dict(resp.headers)
     return None
 
 

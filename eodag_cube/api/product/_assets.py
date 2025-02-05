@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import xarray as xr
 
@@ -132,7 +132,7 @@ class Asset(Asset_core):
         self,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-        **xarray_kwargs: Mapping[str, Any],
+        **xarray_kwargs: Any,
     ) -> xr.Dataset:
         """
         Return asset data as a :class:`xarray.Dataset`.

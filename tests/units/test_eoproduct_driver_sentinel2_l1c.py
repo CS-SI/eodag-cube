@@ -109,7 +109,10 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
                 """A fake authenticator plugin"""
 
                 def authenticate(self):
-                    return "access_key", "access_secret"
+                    return {
+                        "aws_access_key_id": "access_key",
+                        "aws_secret_access_key": "access_secret",
+                    }
 
             self.product.downloader_auth = MockAuthenticator()
             yield self.product
