@@ -25,7 +25,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from eodag import config
-from eodag.api.product import EOProduct
+from eodag_cube.api.product import EOProduct
 from eodag.api.product.drivers.base import NoDriver
 from eodag.config import PluginConfig
 from eodag_cube.api.product.drivers.generic import GenericDriver
