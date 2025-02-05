@@ -80,7 +80,9 @@ class GenericDriver(DatasetDriver):
 
             raise AddressNotFound(
                 rf"Please adapt given band parameter ('{band}') to match only file: "
-                rf"{len(matching_files)} files found matching {p}"
+                rf"{len(matching_files)} files found matching {p} / {matching_files} "
+                rf"product path: {uri_to_path(eo_product.location)} "
+                rf"location: {eo_product.location} "
             )
 
         raise UnsupportedDatasetAddressScheme(
