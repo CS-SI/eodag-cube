@@ -40,14 +40,11 @@ logger = logging.getLogger("eodag-cube.api.product")
 
 class AssetsDict(AssetsDict_core):
     """A UserDict object listing assets contained in a
-    :class:`~eodag.api.product._product.EOProduct` resulting from a search.
+    :class:`eodag.api.product._product.EOProduct` resulting from a search.
 
     :param product: Product resulting from a search
-    :type product: :class:`~eodag.api.product._product.EOProduct`
     :param args: (optional) Arguments used to init the dictionary
-    :type args: Any
     :param kwargs: (optional) Additional named-arguments used to init the dictionary
-    :type kwargs: Any
     """
 
     def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
@@ -56,16 +53,12 @@ class AssetsDict(AssetsDict_core):
 
 class Asset(Asset_core):
     """A UserDict object containg one of the assets of a
-    :class:`~eodag.api.product._product.EOProduct` resulting from a search.
+    :class:`eodag.api.product._product.EOProduct` resulting from a search.
 
     :param product: Product resulting from a search
-    :type product: :class:`~eodag.api.product._product.EOProduct`
     :param key: asset key
-    :type key: str
     :param args: (optional) Arguments used to init the dictionary
-    :type args: Any
     :param kwargs: (optional) Additional named-arguments used to init the dictionary
-    :type kwargs: Any
     """
 
     @_deprecated("Use to_xarray instead")
@@ -79,13 +72,11 @@ class Asset(Asset_core):
         resampling: Optional[Resampling] = None,
         **rioxr_kwargs: Any,
     ) -> DataArray:
-        """Retrieves asset raster data abstracted by the :class:`EOProduct`
+        """Retrieves asset raster data abstracted by the :class:`eodag.api.product._product.EOProduct`
 
         :param crs: (optional) The coordinate reference system in which the dataset should be returned
-        :type crs: str
         :param resolution: (optional) The resolution in which the dataset should be returned
                             (given in the unit of the crs)
-        :type resolution: float
         :param extent: (optional) The coordinates on which to zoom, matching the given CRS. Can be defined in
                     different ways (its bounds will be used):
 
@@ -97,14 +88,13 @@ class Asset(Asset_core):
                       ``[lonmin, latmin, lonmax, latmax]``
                     * with a WKT str
 
-        :type extent: Union[str, dict, shapely.geometry.base.BaseGeometry]
         :param resampling: (optional) Warp resampling algorithm passed to :class:`rasterio.vrt.WarpedVRT`
-        :type resampling: Resampling
-        :param rioxr_kwargs: kwargs passed to ``rioxarray.open_rasterio()``
-        :type rioxr_kwargs: Any
+        :param rioxr_kwargs: kwargs passed to :func:`rioxarray.open_rasterio`
         :returns: The numeric matrix corresponding to the sub dataset or an empty
                     array if unable to get the data
-        :rtype: xarray.DataArray
+
+        .. deprecated:: 0.6.0b1
+           Use the :meth:`eodag_cube.api.product._assets.Asset.to_xarray` method instead.
         """
         band_pattern = rf"^{self.key}$"
         return self.product.get_data(
@@ -151,7 +141,7 @@ class Asset(Asset_core):
                      order status check
         :param timeout: (optional) If order is needed, maximum time in minutes before
                         stop checking order status
-        :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+        :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: Asset data as a :class:`xarray.Dataset`
         """
         xd = self.product.to_xarray(self.key, wait, timeout, **xarray_kwargs)

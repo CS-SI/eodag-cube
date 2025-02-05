@@ -34,7 +34,7 @@ logger = logging.getLogger("eodag-cube.utils.xarray")
 
 
 def guess_engines(file: OpenFile) -> list[str]:
-    """Guess matching xarray engines for fsspec OpenFile
+    """Guess matching ``xarray`` engines for fsspec :class:`fsspec.core.OpenFile`
 
     :param file: fsspec https OpenFile
     :returns: engines list
@@ -54,7 +54,7 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
     """Try opening xarray dataset from fsspec OpenFile
 
     :param file: fsspec https OpenFile
-    :param xarray_kwargs: (optional) keyword arguments passed to xarray.open_dataset
+    :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
     :returns: opened xarray dataset
     """
     LOCALFILE_ONLY_ENGINES = ["netcdf4", "cfgrib"]
