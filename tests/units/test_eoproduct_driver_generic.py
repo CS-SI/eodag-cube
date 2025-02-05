@@ -31,6 +31,7 @@ from tests.context import (
     EOProduct,
     GenericDriver,
     UnsupportedDatasetAddressScheme,
+    path_to_uri,
 )
 
 
@@ -105,7 +106,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
     def _grib_product(self):
         original = self.product.location
         try:
-            self.product.location = f"file://{TEST_GRIB_PRODUCT_PATH}"
+            self.product.location = path_to_uri(TEST_GRIB_PRODUCT_PATH)
             yield self.product
         finally:
             self.product.location = original

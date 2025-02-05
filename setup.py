@@ -44,6 +44,7 @@ setup(
             "pytest",
             "pytest-cov",
             "tox",
+            "tox-uv",
             "nose",
             "faker",
             "coverage",
@@ -55,7 +56,7 @@ setup(
     },
     zip_safe=False,
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "Natural Language :: English",
