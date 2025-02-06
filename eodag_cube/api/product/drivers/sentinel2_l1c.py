@@ -99,16 +99,21 @@ class Sentinel2L1C(DatasetDriver):
                                     return str(os.path.normpath(filename))
                 raise AddressNotFound
         if product_location_scheme == "s3":
-            access_key, access_secret = eo_product.downloader_auth.authenticate()
-            s3 = boto3.resource(
-                "s3", aws_access_key_id=access_key, aws_secret_access_key=access_secret
-            )
-            bucket = s3.Bucket("sentinel-s2-l1c")
-            for summary in bucket.objects.filter(
-                Prefix=eo_product.location.split("s3://")[-1]
-            ):
-                if "{}.jp2".format(band) in summary.key:
-                    return "s3://sentinel-s2-l1c/{}".format(summary.key)
+            if eo_product.downloader_auth is None:
+                raise AddressNotFound
+            auth_dict = eo_product.downloader_auth.authenticate()
+            if isinstance(auth_dict, dict):
+                s3 = boto3.resource(
+                    "s3",
+                    aws_access_key_id=auth_dict.get("aws_access_key_id"),
+                    aws_secret_access_key=auth_dict.get("aws_secret_access_key"),
+                )
+                bucket = s3.Bucket("sentinel-s2-l1c")
+                for summary in bucket.objects.filter(
+                    Prefix=eo_product.location.split("s3://")[-1]
+                ):
+                    if "{}.jp2".format(band) in summary.key:
+                        return "s3://sentinel-s2-l1c/{}".format(summary.key)
             raise AddressNotFound
         raise UnsupportedDatasetAddressScheme(
             "eo product {} is accessible through a location scheme that is not yet "

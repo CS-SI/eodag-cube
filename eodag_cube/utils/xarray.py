@@ -50,7 +50,7 @@ def guess_engines(file: OpenFile) -> list[str]:
     return guessed_engines
 
 
-def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Dataset:
+def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
     """Try opening xarray dataset from fsspec OpenFile
 
     :param file: fsspec https OpenFile
@@ -64,7 +64,7 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
             engine,
         ]
     else:
-        all_engines = guess_engines(file) or list(xr.backends.list_engines().keys())
+        all_engines = guess_engines(file) or [*xr.backends.list_engines()]
 
     if "file" in file.fs.protocol:
         engines = all_engines
@@ -122,7 +122,18 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: dict[str, Any]) -> xr.Data
                     mask_and_scale=True,
                     **xarray_kwargs,
                 )
-                ds = da.to_dataset(name="band_data")
+                ds_or_list = (
+                    da.to_dataset(name="band_data")
+                    if isinstance(da, xr.DataArray)
+                    else da
+                )
+                if isinstance(ds_or_list, list):
+                    logger.warning(
+                        f"Only 1/{len(ds_or_list)} datasets list was kept for {file.path}"
+                    )
+                    ds = ds_or_list[0]
+                else:
+                    ds = ds_or_list
             else:
                 ds = xr.open_dataset(file_or_path, engine=engine, **xarray_kwargs)
 

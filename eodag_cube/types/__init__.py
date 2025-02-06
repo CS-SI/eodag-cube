@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections import UserDict
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 import xarray as xr
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("eodag-cube.types")
 
 
-class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
+class XarrayDict(UserDict[str, xr.Dataset]):
     """
     Dictionnary that stores as values independant :class:`xarray.Dataset` having various
     dimensions.

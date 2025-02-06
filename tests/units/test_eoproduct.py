@@ -345,6 +345,7 @@ class TestEOProduct(EODagTestCase):
         product = EOProduct(
             self.provider, self.eoproduct_props, productType=self.product_type
         )
+        product.downloader = mock.MagicMock()
         with self.assertRaises(
             DatasetCreationError, msg=f"foo not found in {product} assets"
         ):

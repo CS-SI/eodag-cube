@@ -33,9 +33,11 @@ import xarray as xr
 from fsspec.core import OpenFile
 from rasterio.vrt import WarpedVRT
 from requests import PreparedRequest
+from requests.structures import CaseInsensitiveDict
 
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
+from eodag.plugins.download.aws import AwsDownload
 from eodag.utils import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
@@ -53,7 +55,7 @@ if TYPE_CHECKING:
     # from fsspec.core import OpenFile
     from rasterio.enums import Resampling
     from shapely.geometry.base import BaseGeometry
-    from xarray import DataArray
+    from xarray import DataArray, Dataset
 
 logger = logging.getLogger("eodag-cube.api.product")
 
@@ -115,7 +117,7 @@ class EOProduct(EOProduct_core):
         ] = None,
         resampling: Optional[Resampling] = None,
         **rioxr_kwargs: Any,
-    ) -> DataArray:
+    ) -> Union[Dataset, DataArray, list[Dataset]]:
         """Retrieves all or part of the raster data abstracted by the :class:`EOProduct`
 
         :param band: The band of the dataset to retrieve (e.g.: 'B01')
@@ -201,11 +203,11 @@ class EOProduct(EOProduct_core):
                 with rasterio.open(dataset_address) as src:
                     with warped_vrt_class(src, **warped_vrt_args) as vrt:
                         da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
-                        if extent:
+                        if extent and hasattr(da, "rio"):
                             da = da.rio.clip_box(
                                 minx=minx, miny=miny, maxx=maxx, maxy=maxy
                             )
-                        if resolution:
+                        if resolution and hasattr(da, "rio"):
                             height = int((maxy - miny) / resolution)
                             width = int((maxx - minx) / resolution)
                             out_shape = (height, width)
@@ -232,18 +234,23 @@ class EOProduct(EOProduct_core):
         :return: The rasterio environment variables
         """
         product_location_scheme = dataset_address.split("://")[0]
-        if "s3" in product_location_scheme and hasattr(
-            self.downloader, "get_product_bucket_name_and_prefix"
-        ):
+        if "s3" in product_location_scheme and isinstance(self.downloader, AwsDownload):
             bucket_name, prefix = self.downloader.get_product_bucket_name_and_prefix(
                 self, dataset_address
             )
-            auth_dict = self.downloader_auth.authenticate()
-            rio_env_dict = {
-                "session": rasterio.session.AWSSession(
-                    **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
-                )
-            }
+            auth_dict = (
+                self.downloader_auth.authenticate() if self.downloader_auth else {}
+            )
+            rio_env_dict = (
+                {
+                    "session": rasterio.session.AWSSession(
+                        **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
+                    )
+                }
+                if prefix is not None and isinstance(auth_dict, dict)
+                else {}
+            )
+
             endpoint_url = getattr(self.downloader.config, "s3_endpoint", None)
             if endpoint_url:
                 aws_s3_endpoint = endpoint_url.split("://")[-1]
@@ -266,6 +273,8 @@ class EOProduct(EOProduct_core):
         Get fsspec storage_options keyword arguments
         """
         auth = self.downloader_auth.authenticate() if self.downloader_auth else None
+        if self.downloader is None:
+            return {}
 
         # order if product is offline
         if self.properties.get("storageStatus") == OFFLINE_STATUS and hasattr(
@@ -281,7 +290,7 @@ class EOProduct(EOProduct_core):
         headers = {**USER_AGENT}
 
         if isinstance(auth, dict):
-            auth_kwargs = dict()
+            auth_kwargs: dict[str, Any] = dict()
             # AwsAuth
             s3_endpoint = getattr(self.downloader.config, "s3_endpoint", None)
             if s3_endpoint is not None:
@@ -301,7 +310,7 @@ class EOProduct(EOProduct_core):
         # update url and headers with auth
         req = PreparedRequest()
         req.url = url
-        req.headers = headers
+        req.headers = CaseInsensitiveDict(headers)
 
         auth_req = auth(req) if auth else req
 
@@ -358,7 +367,7 @@ class EOProduct(EOProduct_core):
         return nullcontext()
 
     def _build_local_xarray_dict(
-        self, local_path: str, **xarray_kwargs: dict[str, Any]
+        self, local_path: str, **xarray_kwargs: Any
     ) -> XarrayDict:
         """Build :class:`eodag_cube.types.XarrayDict` for local data
 
@@ -374,7 +383,7 @@ class EOProduct(EOProduct_core):
                 local_path,
             ]
         else:
-            files = list(Path(local_path).rglob("*"))
+            files = [str(x) for x in Path(local_path).rglob("*") if x.is_file()]
 
         for file_path in files:
             if not os.path.isfile(file_path):
@@ -382,9 +391,12 @@ class EOProduct(EOProduct_core):
             file = fs.open(file_path)
             try:
                 ds = try_open_dataset(file, **xarray_kwargs)
-                key, _ = self.driver.guess_asset_key_and_roles(str(file_path), self)
-                xarray_dict[key] = ds
-                xarray_dict._files[key] = file
+                key, _ = self.driver.guess_asset_key_and_roles(file_path, self)
+                if key is not None:
+                    xarray_dict[key] = ds
+                    xarray_dict._files[key] = file
+                else:
+                    logger.debug(f"Could not guess asset key for {file_path}")
             except DatasetCreationError as e:
                 logger.debug(e)
 
@@ -395,8 +407,8 @@ class EOProduct(EOProduct_core):
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-        roles=["data", "data-mask"],
-        **xarray_kwargs: dict[str, Any],
+        roles: list[str] = ["data", "data-mask"],
+        **xarray_kwargs: Any,
     ) -> XarrayDict:
         """
         Return product data as a dictionary of :class:`xarray.Dataset`.

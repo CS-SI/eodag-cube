@@ -52,6 +52,10 @@ setup(
             "responses < 0.24.0",
             "twine",
             "wheel",
+            "mypy",
+            "types-requests",
+            "types-shapely",
+            "boto3-stubs[essential]",
         ]
     },
     zip_safe=False,
