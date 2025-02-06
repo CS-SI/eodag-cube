@@ -77,15 +77,11 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
         if len(engines) > 1:
             try:
                 ds = xr.open_dataset(file_or_path, **xarray_kwargs)
-                logger.debug(
-                    f"{file.path} opened using {file.fs.protocol} + guessed engine"
-                )
+                logger.debug(f"{file.path} opened using {file.fs.protocol} + guessed engine")
                 return ds
 
             except Exception as e:
-                raise DatasetCreationError(
-                    f"Cannot open local dataset {file.path}: {str(e)}"
-                ) from e
+                raise DatasetCreationError(f"Cannot open local dataset {file.path}: {str(e)}") from e
 
     else:
         # remove engines that do not support remote access
@@ -107,15 +103,9 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
             if engine == "rasterio":
                 # prevents to read all file in memory since rasterio 1.4.0
                 # https://github.com/rasterio/rasterio/issues/3232
-                opener = (
-                    file.fs.open
-                    if not any(p in file.fs.protocol for p in ["local", "s3"])
-                    else None
-                )
+                opener = file.fs.open if not any(p in file.fs.protocol for p in ["local", "s3"]) else None
                 # fix messy protocol with zip+s3
-                clean_url = getattr(file, "full_name", file.path).replace(
-                    "s3://zip+s3://", "zip+s3://"
-                )
+                clean_url = getattr(file, "full_name", file.path).replace("s3://zip+s3://", "zip+s3://")
                 da = rioxarray.open_rasterio(
                     clean_url,
                     opener=opener,
@@ -123,15 +113,9 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
                     mask_and_scale=True,
                     **xarray_kwargs,
                 )
-                ds_or_list = (
-                    da.to_dataset(name="band_data")
-                    if isinstance(da, xr.DataArray)
-                    else da
-                )
+                ds_or_list = da.to_dataset(name="band_data") if isinstance(da, xr.DataArray) else da
                 if isinstance(ds_or_list, list):
-                    logger.warning(
-                        f"Only 1/{len(ds_or_list)} datasets list was kept for {file.path}"
-                    )
+                    logger.warning(f"Only 1/{len(ds_or_list)} datasets list was kept for {file.path}")
                     ds = ds_or_list[0]
                 else:
                     ds = ds_or_list
@@ -139,13 +123,9 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
                 ds = xr.open_dataset(file_or_path, engine=engine, **xarray_kwargs)
 
         except Exception as e:
-            logger.debug(
-                f"Cannot open {file.path} with {file.fs.protocol} + {engine}: {str(e)}"
-            )
+            logger.debug(f"Cannot open {file.path} with {file.fs.protocol} + {engine}: {str(e)}")
         else:
             logger.debug(f"{file.path} opened using {file.fs.protocol} + {engine}")
             return ds
 
-    raise DatasetCreationError(
-        f"None of the engines {engines} could open the dataset at {file.path}."
-    )
+    raise DatasetCreationError(f"None of the engines {engines} could open the dataset at {file.path}.")

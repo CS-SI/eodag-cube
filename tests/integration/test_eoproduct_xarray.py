@@ -35,9 +35,7 @@ from tests.context import (
 class TestEOProductXarray(EODagTestCase):
     def test_to_xarray_local(self):
         """to_xarray must build a Dataset from found local paths"""
-        product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
+        product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
         product.register_downloader(AwsDownload("foo", PluginConfig()), None)
 
         products_path = os.path.join(

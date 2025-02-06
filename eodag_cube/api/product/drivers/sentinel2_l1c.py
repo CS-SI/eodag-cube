@@ -73,9 +73,7 @@ class Sentinel2L1C(DatasetDriver):
 
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
-            top_level_mtd = os.path.join(
-                uri_to_path(eo_product.location), "MTD_MSIL1C.xml"
-            )
+            top_level_mtd = os.path.join(uri_to_path(eo_product.location), "MTD_MSIL1C.xml")
             # Ignore the NotGeoreferencedWarning thrown by rasterio
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -88,9 +86,7 @@ class Sentinel2L1C(DatasetDriver):
                         spatial_res = address.split(":")[-2]
                         if band in self.SPATIAL_RES_PER_BANDS[spatial_res]:
                             with rasterio.open(address) as subdataset:
-                                band_file_pattern = re.compile(
-                                    self.BAND_FILE_PATTERN_TPL.format(band=band)
-                                )
+                                band_file_pattern = re.compile(self.BAND_FILE_PATTERN_TPL.format(band=band))
                                 for filename in filter(
                                     lambda f: band_file_pattern.match(f),
                                     subdataset.files,
@@ -108,9 +104,7 @@ class Sentinel2L1C(DatasetDriver):
                     aws_secret_access_key=auth_dict.get("aws_secret_access_key"),
                 )
                 bucket = s3.Bucket("sentinel-s2-l1c")
-                for summary in bucket.objects.filter(
-                    Prefix=eo_product.location.split("s3://")[-1]
-                ):
+                for summary in bucket.objects.filter(Prefix=eo_product.location.split("s3://")[-1]):
                     if "{}.jp2".format(band) in summary.key:
                         return "s3://sentinel-s2-l1c/{}".format(summary.key)
             raise AddressNotFound
