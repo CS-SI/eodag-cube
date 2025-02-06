@@ -16,5 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """EODAG product package"""
+
 from ._assets import Asset, AssetsDict  # noqa
 from ._product import EOProduct  # noqa

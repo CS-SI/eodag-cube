@@ -47,7 +47,6 @@ class TestEOProductXarray(EODagTestCase):
         product.location = path_to_uri(products_path)
 
         with product.to_xarray() as xarray_dict:
-
             self.assertIsInstance(xarray_dict, XarrayDict)
             self.assertEqual(len(xarray_dict), 3)
 

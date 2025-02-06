@@ -102,7 +102,6 @@ class XarrayDict(UserDict[str, xr.Dataset]):
         )
 
     def _repr_html_(self, embedded: bool = False) -> str:
-
         thead = (
             f"""<thead><tr><td style='text-align: left; color: grey;'>
                 {type(self).__name__}&ensp;({len(self)})

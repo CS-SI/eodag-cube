@@ -71,7 +71,6 @@ class TestEOProductDriverGeneric(EODagTestCase):
     def test_driver_get_local_grib_dataset_address_ok(self):
         """Driver returns a good address for a grib file"""
         with self._grib_product() as product:
-
             address = self.product.driver.legacy.get_data_address(
                 product, TEST_GRIB_FILENAME
             )

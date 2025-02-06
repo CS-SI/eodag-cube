@@ -17,6 +17,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import os
 from contextlib import contextmanager, nullcontext
@@ -24,17 +25,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
 
-import concurrent.futures
 import fsspec
 import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
-from fsspec.core import OpenFile
-from rasterio.vrt import WarpedVRT
-from requests import PreparedRequest
-from requests.structures import CaseInsensitiveDict
-
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from eodag.plugins.download.aws import AwsDownload
@@ -46,6 +41,11 @@ from eodag.utils import (
     get_geometry_from_various,
 )
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
+from fsspec.core import OpenFile
+from rasterio.vrt import WarpedVRT
+from requests import PreparedRequest
+from requests.structures import CaseInsensitiveDict
+
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError

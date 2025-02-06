@@ -21,7 +21,6 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import xarray as xr
-
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
 from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT, _deprecated

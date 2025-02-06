@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING
 
 import boto3
 import rasterio
-
 from eodag.api.product.drivers.base import DatasetDriver
 from eodag.utils import uri_to_path
 from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressScheme
@@ -116,6 +115,7 @@ class Sentinel2L1C(DatasetDriver):
                         return "s3://sentinel-s2-l1c/{}".format(summary.key)
             raise AddressNotFound
         raise UnsupportedDatasetAddressScheme(
-            "eo product {} is accessible through a location scheme that is not yet "
-            "supported by eodag: {}".format(eo_product, product_location_scheme)
+            "eo product {} is accessible through a location scheme that is not yet supported by eodag: {}".format(
+                eo_product, product_location_scheme
+            )
         )

@@ -21,9 +21,8 @@ import shutil
 import unittest
 from unittest import mock  # PY3
 
-from shapely import wkt
-
 from eodag.api.product.metadata_mapping import DEFAULT_METADATA_MAPPING
+from shapely import wkt
 
 jp = os.path.join
 dirn = os.path.dirname
@@ -47,10 +46,7 @@ TEST_GRIB_FILE_PATH = os.path.join(TEST_GRIB_PRODUCT_PATH, TEST_GRIB_FILENAME)
 class EODagTestCase(unittest.TestCase):
     def setUp(self):
         self.provider = "sobloo"
-        self.download_url = (
-            "https://sobloo.eu/api/v1/services/download/8ff765a2-e089-465d-a48f-"
-            "cc27008a0962"
-        )
+        self.download_url = "https://sobloo.eu/api/v1/services/download/8ff765a2-e089-465d-a48f-cc27008a0962"
         self.local_filename = (
             "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE"
         )
@@ -179,7 +175,6 @@ class EODagTestCase(unittest.TestCase):
             shapely_mapping["coordinates"][i] = list(coords)
             coords = shapely_mapping["coordinates"][i]
             for j, pair in enumerate(coords):
-
                 # Coordinates rounded to 6 decimals by geojson lib
                 # So rounding coordinates in order to be able to compare
                 # coordinates after a `geojson.loads`
