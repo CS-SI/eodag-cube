@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rasterio
-
 from eodag.api.product.drivers.base import DatasetDriver
 from eodag.utils import uri_to_path
 from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressScheme
@@ -59,7 +58,6 @@ class GenericDriver(DatasetDriver):
 
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
-
             p = re.compile(rf"{band}", re.IGNORECASE)
             matching_files = []
             for f_path in Path(uri_to_path(eo_product.location)).glob("**/*"):
@@ -84,6 +82,7 @@ class GenericDriver(DatasetDriver):
             )
 
         raise UnsupportedDatasetAddressScheme(
-            "eo product {} is accessible through a location scheme that is not yet "
-            "supported by eodag: {}".format(eo_product, product_location_scheme)
+            "eo product {} is accessible through a location scheme that is not yet supported by eodag: {}".format(
+                eo_product, product_location_scheme
+            )
         )

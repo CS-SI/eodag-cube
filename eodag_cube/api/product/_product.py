@@ -17,24 +17,19 @@
 # limitations under the License.
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import os
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 from urllib.parse import urlparse
 
-import concurrent.futures
 import fsspec
 import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
-from fsspec.core import OpenFile
-from rasterio.vrt import WarpedVRT
-from requests import PreparedRequest
-from requests.structures import CaseInsensitiveDict
-
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from eodag.plugins.download.aws import AwsDownload
@@ -46,6 +41,11 @@ from eodag.utils import (
     get_geometry_from_various,
 )
 from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
+from fsspec.core import OpenFile
+from rasterio.vrt import WarpedVRT
+from requests import PreparedRequest
+from requests.structures import CaseInsensitiveDict
+
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
@@ -96,12 +96,8 @@ class EOProduct(EOProduct_core):
         mentioned CRS.
     """
 
-    def __init__(
-        self, provider: str, properties: dict[str, Any], **kwargs: Any
-    ) -> None:
-        super(EOProduct, self).__init__(
-            provider=provider, properties=properties, **kwargs
-        )
+    def __init__(self, provider: str, properties: dict[str, Any], **kwargs: Any) -> None:
+        super(EOProduct, self).__init__(provider=provider, properties=properties, **kwargs)
         core_assets_data = self.assets.data
         self.assets = AssetsDict(self)
         self.assets.update(core_assets_data)
@@ -112,9 +108,7 @@ class EOProduct(EOProduct_core):
         band: str,
         crs: Optional[str] = None,
         resolution: Optional[float] = None,
-        extent: Optional[
-            Union[str, dict[str, float], list[float], BaseGeometry]
-        ] = None,
+        extent: Optional[Union[str, dict[str, float], list[float], BaseGeometry]] = None,
         resampling: Optional[Resampling] = None,
         **rioxr_kwargs: Any,
     ) -> Union[Dataset, DataArray, list[Dataset]]:
@@ -172,9 +166,7 @@ class EOProduct(EOProduct_core):
                 return fail_value
             dataset_address = self.driver.legacy.get_data_address(self, band)
 
-        clip_geom = (
-            get_geometry_from_various(geometry=extent) if extent else self.geometry
-        )
+        clip_geom = get_geometry_from_various(geometry=extent) if extent else self.geometry
         clip_bounds = clip_geom.bounds
         minx, miny, maxx, maxy = clip_bounds
 
@@ -204,9 +196,7 @@ class EOProduct(EOProduct_core):
                     with warped_vrt_class(src, **warped_vrt_args) as vrt:
                         da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
                         if extent and hasattr(da, "rio"):
-                            da = da.rio.clip_box(
-                                minx=minx, miny=miny, maxx=maxx, maxy=maxy
-                            )
+                            da = da.rio.clip_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
                         if resolution and hasattr(da, "rio"):
                             height = int((maxy - miny) / resolution)
                             width = int((maxx - minx) / resolution)
@@ -235,18 +225,10 @@ class EOProduct(EOProduct_core):
         """
         product_location_scheme = dataset_address.split("://")[0]
         if "s3" in product_location_scheme and isinstance(self.downloader, AwsDownload):
-            bucket_name, prefix = self.downloader.get_product_bucket_name_and_prefix(
-                self, dataset_address
-            )
-            auth_dict = (
-                self.downloader_auth.authenticate() if self.downloader_auth else {}
-            )
+            bucket_name, prefix = self.downloader.get_product_bucket_name_and_prefix(self, dataset_address)
+            auth_dict = self.downloader_auth.authenticate() if self.downloader_auth else {}
             rio_env_dict = (
-                {
-                    "session": rasterio.session.AWSSession(
-                        **self.downloader.get_rio_env(bucket_name, prefix, auth_dict)
-                    )
-                }
+                {"session": rasterio.session.AWSSession(**self.downloader.get_rio_env(bucket_name, prefix, auth_dict))}
                 if prefix is not None and isinstance(auth_dict, dict)
                 else {}
             )
@@ -277,9 +259,7 @@ class EOProduct(EOProduct_core):
             return {}
 
         # order if product is offline
-        if self.properties.get("storageStatus") == OFFLINE_STATUS and hasattr(
-            self.downloader, "order"
-        ):
+        if self.properties.get("storageStatus") == OFFLINE_STATUS and hasattr(self.downloader, "order"):
             self.downloader.order(self, auth, wait=wait, timeout=timeout)
 
         # default url and headers
@@ -294,9 +274,7 @@ class EOProduct(EOProduct_core):
             # AwsAuth
             s3_endpoint = getattr(self.downloader.config, "s3_endpoint", None)
             if s3_endpoint is not None:
-                auth_kwargs["client_kwargs"] = {
-                    "endpoint_url": self.downloader.config.s3_endpoint
-                }
+                auth_kwargs["client_kwargs"] = {"endpoint_url": self.downloader.config.s3_endpoint}
             if "aws_access_key_id" in auth:
                 auth_kwargs["key"] = auth["aws_access_key_id"]
             if "aws_secret_access_key" in auth:
@@ -347,9 +325,7 @@ class EOProduct(EOProduct_core):
         fs = fsspec.filesystem(protocol, **storage_options)
         return fs.open(path=path)
 
-    def rio_env(
-        self, dataset_address: Optional[str] = None
-    ) -> Union[rasterio.env.Env, nullcontext]:
+    def rio_env(self, dataset_address: Optional[str] = None) -> Union[rasterio.env.Env, nullcontext]:
         """Get rasterio environment
 
         :param dataset_address: address of the data to read
@@ -366,9 +342,7 @@ class EOProduct(EOProduct_core):
                 return cm
         return nullcontext()
 
-    def _build_local_xarray_dict(
-        self, local_path: str, **xarray_kwargs: Any
-    ) -> XarrayDict:
+    def _build_local_xarray_dict(self, local_path: str, **xarray_kwargs: Any) -> XarrayDict:
         """Build :class:`eodag_cube.types.XarrayDict` for local data
 
         :param local_path: local path to scan for data
@@ -407,7 +381,7 @@ class EOProduct(EOProduct_core):
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-        roles: list[str] = ["data", "data-mask"],
+        roles: Iterable[str] = {"data", "data-mask"},
         **xarray_kwargs: Any,
     ) -> XarrayDict:
         """
@@ -456,9 +430,7 @@ class EOProduct(EOProduct_core):
             file = self.get_file_obj(asset_key, wait, timeout)
             # fix messy protocol with zip+s3 and ignore zip content after "!"
             base_file_for_env = (
-                getattr(file, "full_name", file.path)
-                .replace("s3://zip+s3://", "zip+s3://")
-                .split("!")[0]
+                getattr(file, "full_name", file.path).replace("s3://zip+s3://", "zip+s3://").split("!")[0]
             )
             gdal_env = self._get_rio_env(base_file_for_env)
             with rasterio.Env(**gdal_env):
@@ -478,18 +450,12 @@ class EOProduct(EOProduct_core):
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
 
             # download the file and try again with local files
-            path = self.download(
-                asset=asset_key, wait=wait, timeout=timeout, extract=True
-            )
+            path = self.download(asset=asset_key, wait=wait, timeout=timeout, extract=True)
 
             if asset_key is not None:
                 # path is not asset-specific, find asset path
                 # TODO: make download return asset path
-                basename = (
-                    urlparse(self.assets[asset_key]["href"])
-                    .path.strip("/")
-                    .split("/")[-1]
-                )
+                basename = urlparse(self.assets[asset_key]["href"]).path.strip("/").split("/")[-1]
                 try:
                     path = str(next(Path(path).rglob(basename)))
                 except StopIteration:
@@ -499,7 +465,7 @@ class EOProduct(EOProduct_core):
             if not xd:
                 raise DatasetCreationError(
                     f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
-                )
+                ) from None
             # set attributes
             for k in xd.keys():
                 xd[k].attrs.update(**self.properties)

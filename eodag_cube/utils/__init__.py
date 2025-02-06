@@ -20,6 +20,7 @@
 Everything that does not fit into one of the specialised categories of utilities in
 this package should go here
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,9 +29,8 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 from urllib.parse import urlparse
 
 import requests
-from rasterio.crs import CRS
-
 from eodag.utils import guess_extension, parse_header
+from rasterio.crs import CRS
 
 if TYPE_CHECKING:
     from fsspec.core import OpenFile

@@ -21,9 +21,8 @@ import shutil
 import unittest
 from unittest import mock  # PY3
 
-from shapely import wkt
-
 from eodag.api.product.metadata_mapping import DEFAULT_METADATA_MAPPING
+from shapely import wkt
 
 jp = os.path.join
 dirn = os.path.dirname
@@ -32,9 +31,7 @@ TEST_RESOURCES_PATH = jp(dirn(__file__), "resources")
 RESOURCES_PATH = jp(dirn(__file__), "..", "eodag", "resources")
 TESTS_DOWNLOAD_PATH = "/tmp/eodag_tests"
 
-TEST_GRIB_PRODUCT = (
-    "CAMS_EAC4_20210101_20210102_4d792734017419d1719b53f4d5b5d4d6888641de"
-)
+TEST_GRIB_PRODUCT = "CAMS_EAC4_20210101_20210102_4d792734017419d1719b53f4d5b5d4d6888641de"
 TEST_GRIB_FILENAME = f"{TEST_GRIB_PRODUCT}.grib"
 TEST_GRIB_PRODUCT_PATH = os.path.join(
     TEST_RESOURCES_PATH,
@@ -47,16 +44,9 @@ TEST_GRIB_FILE_PATH = os.path.join(TEST_GRIB_PRODUCT_PATH, TEST_GRIB_FILENAME)
 class EODagTestCase(unittest.TestCase):
     def setUp(self):
         self.provider = "sobloo"
-        self.download_url = (
-            "https://sobloo.eu/api/v1/services/download/8ff765a2-e089-465d-a48f-"
-            "cc27008a0962"
-        )
-        self.local_filename = (
-            "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE"
-        )
-        self.local_product_abspath = os.path.abspath(
-            jp(TEST_RESOURCES_PATH, "products", self.local_filename)
-        )
+        self.download_url = "https://sobloo.eu/api/v1/services/download/8ff765a2-e089-465d-a48f-cc27008a0962"
+        self.local_filename = "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911.SAFE"
+        self.local_product_abspath = os.path.abspath(jp(TEST_RESOURCES_PATH, "products", self.local_filename))
         self.local_product_as_archive_path = os.path.abspath(
             jp(
                 TEST_RESOURCES_PATH,
@@ -114,13 +104,7 @@ class EODagTestCase(unittest.TestCase):
         }
         # Put an empty string as value of properties which are not relevant for the
         # tests
-        self.eoproduct_props.update(
-            {
-                key: ""
-                for key in DEFAULT_METADATA_MAPPING
-                if key not in self.eoproduct_props
-            }
-        )
+        self.eoproduct_props.update({key: "" for key in DEFAULT_METADATA_MAPPING if key not in self.eoproduct_props})
 
         self.requests_http_get_patcher = mock.patch("requests.get", autospec=True)
         self.requests_http_post_patcher = mock.patch("requests.post", autospec=True)
@@ -130,9 +114,7 @@ class EODagTestCase(unittest.TestCase):
     def tearDown(self):
         self.requests_http_get_patcher.stop()
         self.requests_http_post_patcher.stop()
-        unwanted_product_dir = jp(
-            dirn(self.local_product_as_archive_path), self.local_filename
-        )
+        unwanted_product_dir = jp(dirn(self.local_product_as_archive_path), self.local_filename)
         if os.path.isdir(unwanted_product_dir):
             shutil.rmtree(unwanted_product_dir)
 
@@ -179,7 +161,6 @@ class EODagTestCase(unittest.TestCase):
             shapely_mapping["coordinates"][i] = list(coords)
             coords = shapely_mapping["coordinates"][i]
             for j, pair in enumerate(coords):
-
                 # Coordinates rounded to 6 decimals by geojson lib
                 # So rounding coordinates in order to be able to compare
                 # coordinates after a `geojson.loads`

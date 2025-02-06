@@ -53,10 +53,7 @@ class StacAssets(DatasetDriver):
         matching_keys = []
         for s in eo_product.assets.keys():
             if (
-                (
-                    "roles" in eo_product.assets[s]
-                    and "data" in eo_product.assets[s]["roles"]
-                )
+                ("roles" in eo_product.assets[s] and "data" in eo_product.assets[s]["roles"])
                 or ("roles" not in eo_product.assets[s])
             ) and p.search(s):
                 matching_keys.append(s)

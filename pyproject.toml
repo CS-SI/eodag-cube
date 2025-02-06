@@ -87,3 +87,35 @@ ignore_missing_imports = true
 
 [tool.uv]
 cache-keys = [{ git = true }]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/rules/
+select = [
+    "B",        # flake8-bugbear
+    "E",        # pycodestyle errors
+    "W",        # pycodestyle warnings
+    "F",        # Pyflakes
+    "C90",      # mccabe (complexity)
+    "I",        # isort
+    "T20",      # flake8-print
+    "D1",       # pydocstyle - docstring presence only
+]
+ignore = [
+    "E203",     # Whitespace before '{symbol}'
+    "E266",     # Too many leading '#' for block comment
+    "E501",     # Line too long
+    "D100",     # Missing docstring in public module
+    "D107",     # Missing docstring in __init__
+    "D105",     # Missing docstring in magic method
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/context.py" = ["F401"]       # F401: unused import
+"tests/**.py" = ["D"]               # D: pydocstyle
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18

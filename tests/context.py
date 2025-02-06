@@ -15,40 +15,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Explicitly import here everything you want to use from the eodag package
+"""Explicitly import here everything you want to use from the eodag package"""
 
-    isort:skip_file
-"""
 import os
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from eodag import config
-from eodag_cube.api.product import EOProduct
 from eodag.api.product.drivers.base import NoDriver
 from eodag.config import PluginConfig
-from eodag_cube.api.product.drivers.generic import GenericDriver
-from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
-from eodag_cube.api.product.drivers.stac_assets import StacAssets
-from eodag_cube.utils import fsspec_file_headers, fsspec_file_extension
-from eodag_cube.utils.exceptions import DatasetCreationError
-from eodag_cube.utils.xarray import (
-    guess_engines,
-    try_open_dataset,
-)
-from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.aws_auth import AwsAuth
+from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.header import HTTPHeaderAuth
 from eodag.plugins.authentication.qsauth import HttpQueryStringAuth
-from eodag.plugins.download.base import Download
 from eodag.plugins.download.aws import AwsDownload
+from eodag.plugins.download.base import Download
 from eodag.utils import (
-    DEFAULT_PROJ,
-    path_to_uri,
-    USER_AGENT,
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
+    DEFAULT_PROJ,
+    USER_AGENT,
     path_to_uri,
 )
 from eodag.utils.exceptions import (
@@ -56,4 +43,12 @@ from eodag.utils.exceptions import (
     DownloadError,
     UnsupportedDatasetAddressScheme,
 )
+
+from eodag_cube.api.product import EOProduct
+from eodag_cube.api.product.drivers.generic import GenericDriver
+from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
+from eodag_cube.api.product.drivers.stac_assets import StacAssets
+from eodag_cube.utils import fsspec_file_extension, fsspec_file_headers
+from eodag_cube.utils.exceptions import DatasetCreationError
+from eodag_cube.utils.xarray import guess_engines, try_open_dataset
 from tests import TEST_RESOURCES_PATH
