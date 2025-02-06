@@ -34,11 +34,7 @@ DRIVERS = [
         "driver": StacAssets(),
     },
     {
-        "criteria": [
-            lambda prod: True
-            if getattr(prod, "product_type") == "S2_MSI_L1C"
-            else False
-        ],
+        "criteria": [lambda prod: True if prod.product_type == "S2_MSI_L1C" else False],
         "driver": Sentinel2L1C(),
     },
     {

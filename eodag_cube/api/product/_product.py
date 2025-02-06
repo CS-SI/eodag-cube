@@ -22,7 +22,7 @@ import logging
 import os
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 from urllib.parse import urlparse
 
 import fsspec
@@ -407,7 +407,7 @@ class EOProduct(EOProduct_core):
         asset_key: Optional[str] = None,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-        roles: list[str] = ["data", "data-mask"],
+        roles: Iterable[str] = {"data", "data-mask"},
         **xarray_kwargs: Any,
     ) -> XarrayDict:
         """
@@ -499,7 +499,7 @@ class EOProduct(EOProduct_core):
             if not xd:
                 raise DatasetCreationError(
                     f"Could not build local XarrayDict for {self} {asset_key if asset_key else ''}"
-                )
+                ) from None
             # set attributes
             for k in xd.keys():
                 xd[k].attrs.update(**self.properties)
