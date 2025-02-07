@@ -67,9 +67,6 @@ dev = [
     "boto3-stubs[essential]"
 ]
 
-[tool.setuptools]
-packages = ["eodag_cube"]
-
 [tool.setuptools.package-data]
 eodag_cube = ["py.typed"]
 
