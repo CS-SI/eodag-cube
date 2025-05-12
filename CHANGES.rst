@@ -1,6 +1,24 @@
 Release history
 ---------------
 
+0.6.0 (2025-05-12)
+++++++++++++++++++
+
+Major changes since last stable (`v0.5.0 <CHANGES.rst#050-2024-10-10>`_)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- [v0.6.0b1] New ``get_file_obj()`` and ``to_xarray()`` methods, making ``get_data()`` deprecated (#79)
+- [v0.6.0b2] Drivers to EODAG core for assets uniformization (#83)
+- [v0.6.0b2] ``EOProduct.rio_env`` method (#85)
+
+Remaining changes since `v0.6.0b2 <CHANGES.rst#060b2-2025-02-03>`_
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Documentation through EODAG readthedocs (#90), updated docstrings (#88)
+- Project configuration moved to ``pyproject.toml`` (#93)
+- ``ruff`` linter and formatter usage (#94)
+- Typing fixes and ``mypy`` usage (#92)
+- Various minor fixes and improvements (#89)(#91)(#95)(#96)
+
 0.6.0b2 (2025-02-03)
 ++++++++++++++++++++
 
