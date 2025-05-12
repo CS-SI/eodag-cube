@@ -1,9 +1,6 @@
 [![image](https://badge.fury.io/py/eodag-cube.svg)](https://badge.fury.io/py/eodag-cube)
-
 [![image](https://img.shields.io/pypi/l/eodag-cube.svg)](https://pypi.org/project/eodag-cube/)
-
 [![image](https://img.shields.io/pypi/pyversions/eodag-cube.svg)](https://pypi.org/project/eodag-cube/)
-
 [![image](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/git/https%3A%2F%2Fgithub.com%2FCS-SI%2Feodag-cube.git/package-data?filepath=docs%2Fnotebooks%2Fclip-reproject.ipynb)
 
 # EODAG-cube
@@ -13,13 +10,13 @@ This project is the data-access part of
 
 [![image](https://eodag.readthedocs.io/en/latest/_static/eodag_bycs.png)](https://github.com/CS-SI/eodag)
 
-# Installation
+## Installation
 
 EODAG-cube is on [PyPI](https://pypi.org/project/eodag-cube/):
 
     python -m pip install eodag-cube
 
-# Documentation
+## Documentation
 
 Documentation is available through [EODAG API User Guide / Data access
 with
@@ -34,7 +31,7 @@ See also:
 - [Python API Reference / utils -
   xarray](https://eodag.readthedocs.io/en/latest/api_reference/utils.html#xarray)
 
-# Usage - Python API
+## Usage - Python API
 
 Example usage for interacting with the api in your Python code:
 
@@ -81,7 +78,7 @@ product.assets["blue"].get_file_obj()
 
 `<File-like object S3FileSystem, sentinel-s2-l1c/tiles/31/T/DJ/2020/6/4/0/B02.jp2>`
 
-# Contribute
+## Contribute
 
 If you intend to contribute to eodag-cube source code:
 
@@ -91,11 +88,11 @@ If you intend to contribute to eodag-cube source code:
     pre-commit install
     tox
 
-# LICENSE
+## LICENSE
 
 EODAG is licensed under Apache License v2.0. See LICENSE file for
 details.
 
-# AUTHORS
+## AUTHORS
 
 EODAG is developed by [CS GROUP - France](https://www.c-s.fr).
