@@ -117,9 +117,7 @@ class TestUtils(unittest.TestCase):
         with mock.patch(
             "eodag_cube.utils.fsspec_file_headers",
         ) as mock_headers:
-            mock_headers.return_value = {
-                "content-disposition": 'attachment; filename="foo.grib"'
-            }
+            mock_headers.return_value = {"content-disposition": 'attachment; filename="foo.grib"'}
             self.assertEqual(fsspec_file_extension(file), ".grib")
         # content type in headers
         with mock.patch(
@@ -160,9 +158,7 @@ class TestXarray(unittest.TestCase):
         file = OpenFile(fs, "https://foo/bar.grib")
         self.assertIn("cfgrib", guess_engines(file))
 
-    @mock.patch(
-        "eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"]
-    )
+    @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"])
     @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_local(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
@@ -216,13 +212,9 @@ class TestXarray(unittest.TestCase):
             mock_open_dataset.return_value = xr.Dataset()
             ds = try_open_dataset(file, foo="bar", baz="qux")
             self.assertIsInstance(ds, xr.Dataset)
-            mock_open_dataset.assert_called_once_with(
-                file.path, engine="cfgrib", foo="bar", baz="qux"
-            )
+            mock_open_dataset.assert_called_once_with(file.path, engine="cfgrib", foo="bar", baz="qux")
 
-    @mock.patch(
-        "eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"]
-    )
+    @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"])
     @mock.patch("eodag_cube.api.product._product.fsspec.open")
     def test_try_open_dataset_remote_nc(self, mock_open, mock_guess_engines):
         """try_open_dataset must call xaray.open_dataset with appropriate args"""
@@ -237,9 +229,7 @@ class TestXarray(unittest.TestCase):
             mock_open_dataset.return_value = xr.Dataset()
             ds = try_open_dataset(file, foo="bar", baz="qux")
             self.assertIsInstance(ds, xr.Dataset)
-            mock_open_dataset.assert_called_once_with(
-                file, engine="h5netcdf", foo="bar", baz="qux"
-            )
+            mock_open_dataset.assert_called_once_with(file, engine="h5netcdf", foo="bar", baz="qux")
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["rasterio"])
     @mock.patch("eodag_cube.api.product._product.fsspec.open")

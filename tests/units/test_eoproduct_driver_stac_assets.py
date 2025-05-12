@@ -31,9 +31,7 @@ from tests.utils import mock
 class TestEOProductDriverStacAssets(EODagTestCase):
     def setUp(self):
         super(TestEOProductDriverStacAssets, self).setUp()
-        self.product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
+        self.product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
         self.product.properties["title"] = os.path.join(
             TEST_RESOURCES_PATH,
             "products",
@@ -140,9 +138,7 @@ class TestEOProductDriverStacAssets(EODagTestCase):
     def _filesystem_product(self):
         original = self.product.location
         try:
-            self.product.location = "file:///{}".format(
-                self.product.properties["title"].strip("/")
-            )
+            self.product.location = "file:///{}".format(self.product.properties["title"].strip("/"))
             yield self.product
         finally:
             self.product.location = original

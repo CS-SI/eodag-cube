@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """EODAG drivers package"""
+
 from eodag.api.product.drivers.base import NoDriver  # noqa
 from eodag_cube.api.product.drivers.generic import GenericDriver
 from eodag_cube.api.product.drivers.sentinel2_l1c import Sentinel2L1C
@@ -23,9 +24,7 @@ from eodag_cube.api.product.drivers.stac_assets import StacAssets
 
 DRIVERS = [
     {
-        "criteria": [
-            lambda prod: True if len(getattr(prod, "assets", {})) > 0 else False
-        ],
+        "criteria": [lambda prod: True if len(getattr(prod, "assets", {})) > 0 else False],
         "driver": StacAssets(),
     },
     {
@@ -33,11 +32,7 @@ DRIVERS = [
         "driver": StacAssets(),
     },
     {
-        "criteria": [
-            lambda prod: True
-            if getattr(prod, "product_type") == "S2_MSI_L1C"
-            else False
-        ],
+        "criteria": [lambda prod: True if prod.product_type == "S2_MSI_L1C" else False],
         "driver": Sentinel2L1C(),
     },
     {

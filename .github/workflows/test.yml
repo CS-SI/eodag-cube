@@ -11,17 +11,22 @@ on:
 
 jobs:
   lint:
-    name: Linting (pre-commit)
+    name: Linting (pre-commit and mypy)
     runs-on: ubuntu-latest
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
+      uses: actions/checkout@v4
       with:
-        python-version: "3.9"
-    - name: Run pre-commit action
-      uses: pre-commit/action@v2.0.0
+        # Get history and tags for SCM versioning to work
+        fetch-depth: 0
+    - name: Install the latest version of uv with cache enabled
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: ""
+    - name: Run linters with tox
+      run: uvx --python 3.9 --with tox-uv tox -e linters
 
   tests:
     name: Test it!
@@ -32,61 +37,33 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
-      uses: actions/setup-python@v2
+      uses: actions/checkout@v4
       with:
-        python-version: ${{ matrix.python-version }}
-    - name: Update pip
-      run: python -m pip install --upgrade pip
-    - name: Get pip cache dir
-      id: pip-cache
-      run: |
-        echo "::set-output name=dir::$(pip cache dir)"
-    - name: Get current week number
-      id: get-week
-      shell: bash
-      run: echo "::set-output name=week::$(date +'%V')"
-    - name: Pip cache
-      uses: actions/cache@v2
+        # Get history and tags for SCM versioning to work
+        fetch-depth: 0
+    - name: Install the latest version of uv with cache enabled
+      uses: astral-sh/setup-uv@v3
       with:
-        path: ${{ steps.pip-cache.outputs.dir }}
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ steps.get-week.outputs.week }}-${{ hashFiles('setup.py') }}
-    - name: Enable long paths on Windows and Git
-      if: runner.os == 'Windows'
-      run: git config --global core.longpaths true
-    - name: Install other deps
-      run: python -m pip install .[dev]
-    - name: Test with pytest
-      run: pytest --show-capture=no --cov --cov-fail-under=50
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: ""
+    - name: Test with tox
+      run: uvx --python ${{ matrix.python-version }} --with tox-uv --with tox-gh-actions tox
 
   check-pypi:
     name: Long description check for PyPI
     runs-on: ubuntu-latest
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
+      uses: actions/checkout@v4
       with:
-        python-version: "3.9"
-    - name: Update pip
-      run: python -m pip install --upgrade pip
-    - name: Get pip cache dir
-      id: pip-cache
-      run: |
-        echo "::set-output name=dir::$(pip cache dir)"
-    - name: Get current week number
-      id: get-week
-      shell: bash
-      run: echo "::set-output name=week::$(date +'%V')"
-    - name: Pip cache
-      uses: actions/cache@v2
+        # Get history and tags for SCM versioning to work
+        fetch-depth: 0
+    - name: Install the latest version of uv with cache enabled
+      uses: astral-sh/setup-uv@v3
       with:
-        path: ${{ steps.pip-cache.outputs.dir }}
-        key: ${{ runner.os }}-pip-${{ steps.get-week.outputs.week }}-${{ hashFiles('setup.py') }}
-    - name: Install tox and sphinx (to have rst2html.py utility available)
-      run: |
-        python -m pip install tox sphinx
-    - name: Testing with tox
-      run: python -m tox -e pypi
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: ""
+    - name: Testing with tox and sphinx (to have rst2html.py utility available)
+      run: uvx --with tox-uv --with sphinx tox -e pypi

@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rasterio
-
 from eodag.api.product.drivers.base import DatasetDriver
 from eodag.utils import uri_to_path
 from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressScheme
@@ -45,13 +44,13 @@ class GenericDriver(DatasetDriver):
         """Get the address of a product subdataset.
 
         :param eo_product: The product whom underlying dataset address is to be retrieved
-        :type eo_product: :class:`~eodag.api.product._product.EOProduct`
+        :type eo_product: :class:`eodag.api.product._product.EOProduct`
         :param band: The band to retrieve (e.g: 'B01')
         :type band: str
         :returns: An address for the dataset
         :rtype: str
-        :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
-        :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
+        :raises: :class:`eodag.utils.exceptions.AddressNotFound`
+        :raises: :class:`eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
         # legacy driver usage if defined
         if legacy_driver := getattr(self, "legacy", None):
@@ -59,7 +58,6 @@ class GenericDriver(DatasetDriver):
 
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
-
             p = re.compile(rf"{band}", re.IGNORECASE)
             matching_files = []
             for f_path in Path(uri_to_path(eo_product.location)).glob("**/*"):
@@ -84,6 +82,7 @@ class GenericDriver(DatasetDriver):
             )
 
         raise UnsupportedDatasetAddressScheme(
-            "eo product {} is accessible through a location scheme that is not yet "
-            "supported by eodag: {}".format(eo_product, product_location_scheme)
+            "eo product {} is accessible through a location scheme that is not yet supported by eodag: {}".format(
+                eo_product, product_location_scheme
+            )
         )

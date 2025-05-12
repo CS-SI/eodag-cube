@@ -8,7 +8,7 @@
     :target: https://pypi.org/project/eodag-cube/
 
 .. image:: https://mybinder.org/badge_logo.svg
-    :target: https://mybinder.org/v2/git/https%3A%2F%2Fgithub.com%2FCS-SI%2Feodag-cube.git/develop?filepath=docs%2Fnotebooks%2Fget_data_basic.ipynb
+    :target: https://mybinder.org/v2/git/https%3A%2F%2Fgithub.com%2FCS-SI%2Feodag-cube.git/package-data?filepath=docs%2Fnotebooks%2Fclip-reproject.ipynb
 
 EODAG-cube
 ==========
@@ -27,6 +27,17 @@ Installation
 EODAG-cube is on `PyPI <https://pypi.org/project/eodag-cube/>`_::
 
     python -m pip install eodag-cube
+
+Documentation
+=============
+
+Documentation is available through `EODAG API User Guide / Data access with eodag-cube <https://eodag.readthedocs.io/en/latest/notebooks/api_user_guide/9_post_process.html#Data-access-with-eodag-cube>`_.
+
+See also:
+
+* `Python API Reference / EOProduct - pixel access <https://eodag.readthedocs.io/en/latest/api_reference/eoproduct.html#pixel-access>`_
+* `Python API Reference / Assets - pixel access <https://eodag.readthedocs.io/en/latest/api_reference/assets.html#pixel-access>`_
+* `Python API Reference / utils - xarray <https://eodag.readthedocs.io/en/latest/api_reference/utils.html#xarray>`_
 
 Usage - Python API
 ==================

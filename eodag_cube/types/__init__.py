@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections import UserDict
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 import xarray as xr
 
@@ -31,9 +31,32 @@ if TYPE_CHECKING:
 logger = logging.getLogger("eodag-cube.types")
 
 
-class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
+class XarrayDict(UserDict[str, xr.Dataset]):
     """
-    Dictionnary which keys are file paths and values are xarray Datasets.
+    Dictionnary that stores as values independant :class:`xarray.Dataset` having various
+    dimensions.
+
+    Example
+    -------
+
+    >>> import xarray
+    >>> XarrayDict({
+    ...     "foo": xarray.Dataset.from_dict(
+    ...         {
+    ...             "x": {"dims": ("x"), "data": [0, 1]},
+    ...             "a": {"dims": ("x"), "data": [10, 20]}
+    ...         }
+    ...     ),
+    ...     "bar": xarray.Dataset.from_dict(
+    ...         {
+    ...             "y": {"dims": ("y"), "data": [0, 1, 2]},
+    ...             "b": {"dims": ("y"), "data": [10, 20, 30]}
+    ...         }
+    ...     )
+    ... })
+    <XarrayDict> (2)
+    {'foo': <xarray.Dataset> (x: 2) Size: 32B,
+    'bar': <xarray.Dataset> (y: 3) Size: 48B}
     """
 
     _files: dict[str, OpenFile] = {}
@@ -70,15 +93,13 @@ class XarrayDict(UserDict[str, Union[xr.Dataset, UserDict[str, xr.Dataset]]]):
 
     def __repr__(self) -> str:
         return (
-            "{"
-            + ",\n".join(
-                [f"'{k}': {self._formatted_title_raw(v)}" for k, v in self.items()]
-            )
+            f"<{type(self).__name__}> ({len(self)})\n"
+            + "{"
+            + ",\n".join([f"'{k}': {self._formatted_title_raw(v)}" for k, v in self.items()])
             + "}"
         )
 
     def _repr_html_(self, embedded: bool = False) -> str:
-
         thead = (
             f"""<thead><tr><td style='text-align: left; color: grey;'>
                 {type(self).__name__}&ensp;({len(self)})

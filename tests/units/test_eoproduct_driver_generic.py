@@ -31,15 +31,14 @@ from tests.context import (
     EOProduct,
     GenericDriver,
     UnsupportedDatasetAddressScheme,
+    path_to_uri,
 )
 
 
 class TestEOProductDriverGeneric(EODagTestCase):
     def setUp(self):
         super(TestEOProductDriverGeneric, self).setUp()
-        self.product = EOProduct(
-            self.provider, self.eoproduct_props, productType="FAKE_PRODUCT_TYPE"
-        )
+        self.product = EOProduct(self.provider, self.eoproduct_props, productType="FAKE_PRODUCT_TYPE")
         self.product.properties["title"] = os.path.join(
             TEST_RESOURCES_PATH,
             "products",
@@ -63,21 +62,14 @@ class TestEOProductDriverGeneric(EODagTestCase):
         with self._filesystem_product() as product:
             band = "B01"
             address = self.product.driver.legacy.get_data_address(product, band)
-            self.assertEqual(
-                os.path.normcase(address), os.path.normcase(self.local_band_file)
-            )
+            self.assertEqual(os.path.normcase(address), os.path.normcase(self.local_band_file))
 
     def test_driver_get_local_grib_dataset_address_ok(self):
         """Driver returns a good address for a grib file"""
         with self._grib_product() as product:
+            address = self.product.driver.legacy.get_data_address(product, TEST_GRIB_FILENAME)
 
-            address = self.product.driver.legacy.get_data_address(
-                product, TEST_GRIB_FILENAME
-            )
-
-            self.assertEqual(
-                os.path.normcase(address), os.path.normcase(TEST_GRIB_FILE_PATH)
-            )
+            self.assertEqual(os.path.normcase(address), os.path.normcase(TEST_GRIB_FILE_PATH))
 
     def test_driver_get_http_remote_dataset_address_fail(self):
         """Driver must raise UnsupportedDatasetAddressScheme if location scheme is http or https"""
@@ -94,9 +86,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
     def _filesystem_product(self):
         original = self.product.location
         try:
-            self.product.location = "file:///{}".format(
-                self.product.properties["title"].strip("/")
-            )
+            self.product.location = "file:///{}".format(self.product.properties["title"].strip("/"))
             yield self.product
         finally:
             self.product.location = original
@@ -105,7 +95,7 @@ class TestEOProductDriverGeneric(EODagTestCase):
     def _grib_product(self):
         original = self.product.location
         try:
-            self.product.location = f"file://{TEST_GRIB_PRODUCT_PATH}"
+            self.product.location = path_to_uri(TEST_GRIB_PRODUCT_PATH)
             yield self.product
         finally:
             self.product.location = original

@@ -21,4 +21,4 @@ from eodag.utils.exceptions import EodagError
 
 
 class DatasetCreationError(EodagError):
-    """An error indicating that xarray.Dataset or XarrayDict could not be created"""
+    """An error indicating that :class:`xarray.Dataset` or :class:`eodag_cube.types.XarrayDict` could not be created"""

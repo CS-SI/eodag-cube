@@ -37,13 +37,13 @@ class StacAssets(DatasetDriver):
         """Get the address of a subdataset for a STAC provider product.
 
         :param eo_product: The product whom underlying dataset address is to be retrieved
-        :type eo_product: :class:`~eodag.api.product._product.EOProduct`
+        :type eo_product: :class:`eodag.api.product._product.EOProduct`
         :param band: The band to retrieve (e.g: 'B01')
         :type band: str
         :returns: An address for the dataset
         :rtype: str
-        :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
-        :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
+        :raises: :class:`eodag.utils.exceptions.AddressNotFound`
+        :raises: :class:`eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
         # legacy driver usage if defined
         if legacy_driver := getattr(self, "legacy", None):
@@ -53,10 +53,7 @@ class StacAssets(DatasetDriver):
         matching_keys = []
         for s in eo_product.assets.keys():
             if (
-                (
-                    "roles" in eo_product.assets[s]
-                    and "data" in eo_product.assets[s]["roles"]
-                )
+                ("roles" in eo_product.assets[s] and "data" in eo_product.assets[s]["roles"])
                 or ("roles" not in eo_product.assets[s])
             ) and p.search(s):
                 matching_keys.append(s)

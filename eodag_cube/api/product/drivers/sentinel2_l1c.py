@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING
 
 import boto3
 import rasterio
-
 from eodag.api.product.drivers.base import DatasetDriver
 from eodag.utils import uri_to_path
 from eodag.utils.exceptions import AddressNotFound, UnsupportedDatasetAddressScheme
@@ -60,13 +59,13 @@ class Sentinel2L1C(DatasetDriver):
               example.
 
         :param eo_product: The product whom underlying dataset address is to be retrieved
-        :type eo_product: :class:`~eodag.api.product._product.EOProduct`
+        :type eo_product: :class:`eodag.api.product._product.EOProduct`
         :param band: The band to retrieve (e.g: 'B01')
         :type band: str
         :returns: An address for the dataset
         :rtype: str
-        :raises: :class:`~eodag.utils.exceptions.AddressNotFound`
-        :raises: :class:`~eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
+        :raises: :class:`eodag.utils.exceptions.AddressNotFound`
+        :raises: :class:`eodag.utils.exceptions.UnsupportedDatasetAddressScheme`
         """
         # legacy driver usage if defined
         if legacy_driver := getattr(self, "legacy", None):
@@ -74,9 +73,7 @@ class Sentinel2L1C(DatasetDriver):
 
         product_location_scheme = eo_product.location.split("://")[0]
         if product_location_scheme == "file":
-            top_level_mtd = os.path.join(
-                uri_to_path(eo_product.location), "MTD_MSIL1C.xml"
-            )
+            top_level_mtd = os.path.join(uri_to_path(eo_product.location), "MTD_MSIL1C.xml")
             # Ignore the NotGeoreferencedWarning thrown by rasterio
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -89,9 +86,7 @@ class Sentinel2L1C(DatasetDriver):
                         spatial_res = address.split(":")[-2]
                         if band in self.SPATIAL_RES_PER_BANDS[spatial_res]:
                             with rasterio.open(address) as subdataset:
-                                band_file_pattern = re.compile(
-                                    self.BAND_FILE_PATTERN_TPL.format(band=band)
-                                )
+                                band_file_pattern = re.compile(self.BAND_FILE_PATTERN_TPL.format(band=band))
                                 for filename in filter(
                                     lambda f: band_file_pattern.match(f),
                                     subdataset.files,
@@ -99,18 +94,22 @@ class Sentinel2L1C(DatasetDriver):
                                     return str(os.path.normpath(filename))
                 raise AddressNotFound
         if product_location_scheme == "s3":
-            access_key, access_secret = eo_product.downloader_auth.authenticate()
-            s3 = boto3.resource(
-                "s3", aws_access_key_id=access_key, aws_secret_access_key=access_secret
-            )
-            bucket = s3.Bucket("sentinel-s2-l1c")
-            for summary in bucket.objects.filter(
-                Prefix=eo_product.location.split("s3://")[-1]
-            ):
-                if "{}.jp2".format(band) in summary.key:
-                    return "s3://sentinel-s2-l1c/{}".format(summary.key)
+            if eo_product.downloader_auth is None:
+                raise AddressNotFound
+            auth_dict = eo_product.downloader_auth.authenticate()
+            if isinstance(auth_dict, dict):
+                s3 = boto3.resource(
+                    "s3",
+                    aws_access_key_id=auth_dict.get("aws_access_key_id"),
+                    aws_secret_access_key=auth_dict.get("aws_secret_access_key"),
+                )
+                bucket = s3.Bucket("sentinel-s2-l1c")
+                for summary in bucket.objects.filter(Prefix=eo_product.location.split("s3://")[-1]):
+                    if "{}.jp2".format(band) in summary.key:
+                        return "s3://sentinel-s2-l1c/{}".format(summary.key)
             raise AddressNotFound
         raise UnsupportedDatasetAddressScheme(
-            "eo product {} is accessible through a location scheme that is not yet "
-            "supported by eodag: {}".format(eo_product, product_location_scheme)
+            "eo product {} is accessible through a location scheme that is not yet supported by eodag: {}".format(
+                eo_product, product_location_scheme
+            )
         )

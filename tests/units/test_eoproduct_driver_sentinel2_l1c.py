@@ -34,9 +34,7 @@ from tests.context import (
 class TestEOProductDriverSentinel2L1C(EODagTestCase):
     def setUp(self):
         super(TestEOProductDriverSentinel2L1C, self).setUp()
-        self.product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
+        self.product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
         self.product.properties["title"] = os.path.join(
             TEST_RESOURCES_PATH,
             "products",
@@ -59,9 +57,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         with self._filesystem_product() as product:
             band = "B01"
             address = self.product.driver.legacy.get_data_address(product, band)
-            self.assertEqual(
-                os.path.normcase(address), os.path.normcase(self.local_band_file)
-            )
+            self.assertEqual(os.path.normcase(address), os.path.normcase(self.local_band_file))
 
     @mock_aws
     def test_driver_get_amazon_s3_remote_dataset_address_ok(self):
@@ -70,9 +66,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
             self.create_mock_s3_bucket_and_product()
             band = "B01"
             address = self.product.driver.legacy.get_data_address(product, band)
-            self.assertEqual(
-                address, "s3://sentinel-s2-l1c/tiles/31/T/DJ/2018/1/28/0/B01.jp2"
-            )
+            self.assertEqual(address, "s3://sentinel-s2-l1c/tiles/31/T/DJ/2018/1/28/0/B01.jp2")
 
     def test_driver_get_http_remote_dataset_address_fail(self):
         """Driver must raise UnsupportedDatasetAddressScheme if location scheme is http or https"""
@@ -89,9 +83,7 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
     def _filesystem_product(self):
         original = self.product.location
         try:
-            self.product.location = "file:///{}".format(
-                self.product.properties["title"].strip("/")
-            )
+            self.product.location = "file:///{}".format(self.product.properties["title"].strip("/"))
             yield self.product
         finally:
             self.product.location = original
@@ -109,7 +101,10 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
                 """A fake authenticator plugin"""
 
                 def authenticate(self):
-                    return "access_key", "access_secret"
+                    return {
+                        "aws_access_key_id": "access_key",
+                        "aws_secret_access_key": "access_secret",
+                    }
 
             self.product.downloader_auth = MockAuthenticator()
             yield self.product
@@ -126,6 +121,4 @@ class TestEOProductDriverSentinel2L1C(EODagTestCase):
         """
         s3 = boto3.resource("s3")
         s3.create_bucket(Bucket="sentinel-s2-l1c")
-        s3.meta.client.put_object(
-            Bucket="sentinel-s2-l1c", Key="tiles/31/T/DJ/2018/1/28/0/B01.jp2"
-        )
+        s3.meta.client.put_object(Bucket="sentinel-s2-l1c", Key="tiles/31/T/DJ/2018/1/28/0/B01.jp2")

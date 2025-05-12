@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eodag_cube"
+dynamic = ["version"]
+description = "Data access for EODAG"
+readme = "README.rst"
+authors = [
+    {name = "CS GROUP - France", email = "eodag@csgroup.space"}
+]
+license = {text = "Apache 2.0"}
+dependencies = [
+    "eodag >=3.1.0b2",
+    "numpy",
+    "rasterio",
+    "xarray",
+    "rioxarray",
+    "h5netcdf",
+    "netcdf4",
+    "cfgrib",
+    "fsspec",
+    "s3fs",
+    "aiohttp"
+]
+requires-python = ">= 3.9"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: GIS"
+]
+
+[project.urls]
+Repository = "https://github.com/CS-SI/eodag-cube"
+
+[project.optional-dependencies]
+dev = [
+    "flake8",
+    "isort",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "tox",
+    "tox-uv",
+    "nose",
+    "faker",
+    "coverage",
+    "moto >=5",
+    "responses !=0.24.0",
+    "twine",
+    "wheel",
+    "mypy",
+    "types-requests",
+    "types-shapely",
+    "boto3-stubs[essential]"
+]
+
+[tool.setuptools.package-data]
+eodag_cube = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = {attr = "eodag_cube.__version__"}
+
+[[tool.mypy.overrides]]
+module = [
+    "fsspec",
+    "fsspec.*",
+    "rasterio",
+    "rasterio.*",
+]
+ignore_missing_imports = true
+
+[tool.uv]
+cache-keys = [{ git = true }]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/rules/
+select = [
+    "B",        # flake8-bugbear
+    "E",        # pycodestyle errors
+    "W",        # pycodestyle warnings
+    "F",        # Pyflakes
+    "C90",      # mccabe (complexity)
+    "I",        # isort
+    "T20",      # flake8-print
+    "D1",       # pydocstyle - docstring presence only
+]
+ignore = [
+    "E203",     # Whitespace before '{symbol}'
+    "E266",     # Too many leading '#' for block comment
+    "E501",     # Line too long
+    "D100",     # Missing docstring in public module
+    "D107",     # Missing docstring in __init__
+    "D105",     # Missing docstring in magic method
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/context.py" = ["F401"]       # F401: unused import
+"tests/**.py" = ["D"]               # D: pydocstyle
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18

@@ -35,9 +35,7 @@ from tests.context import (
 class TestEOProductXarray(EODagTestCase):
     def test_to_xarray_local(self):
         """to_xarray must build a Dataset from found local paths"""
-        product = EOProduct(
-            self.provider, self.eoproduct_props, productType=self.product_type
-        )
+        product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
         product.register_downloader(AwsDownload("foo", PluginConfig()), None)
 
         products_path = os.path.join(
@@ -47,7 +45,6 @@ class TestEOProductXarray(EODagTestCase):
         product.location = path_to_uri(products_path)
 
         with product.to_xarray() as xarray_dict:
-
             self.assertIsInstance(xarray_dict, XarrayDict)
             self.assertEqual(len(xarray_dict), 3)
 
@@ -69,7 +66,7 @@ class TestEOProductXarray(EODagTestCase):
         # check representations
         xd_repr = xarray_dict.__repr__()
         self.assertIsInstance(xd_repr, str)
-        self.assertTrue(xd_repr.startswith("{"))
+        self.assertTrue(xd_repr.startswith("<XarrayDict> (3)\n{"))
         self.assertTrue(xd_repr.endswith("}"))
         self.assertIn("Dataset", xd_repr)
         xd_repr_html = xarray_dict._repr_html_()
