@@ -103,7 +103,7 @@ class TestEOProduct(EODagTestCase):
         mock_downloader = mock.MagicMock(
             spec_set=Download(
                 provider=self.provider,
-                config=config.PluginConfig.from_mapping({"extract": False, "archive_depth": 1}),
+                config=config.PluginConfig.from_mapping({"type": "Download", "extract": False, "archive_depth": 1}),
             )
         )
 
@@ -116,7 +116,9 @@ class TestEOProduct(EODagTestCase):
         mock_downloader.download.side_effect = mock_download
         # mock_downloader.config = {'extract': False, 'archive_depth': 1}
         mock_authenticator = mock.MagicMock(
-            spec_set=Authentication(provider=self.provider, config=config.PluginConfig.from_mapping({}))
+            spec_set=Authentication(
+                provider=self.provider, config=config.PluginConfig.from_mapping({"type": "Download"})
+            )
         )
 
         product.register_downloader(mock_downloader, mock_authenticator.authenticate())
@@ -152,12 +154,14 @@ class TestEOProduct(EODagTestCase):
         mock_downloader = mock.MagicMock(
             spec_set=Download(
                 provider=self.provider,
-                config=config.PluginConfig.from_mapping({"extract": False}),
+                config=config.PluginConfig.from_mapping({"type": "Download", "extract": False}),
             )
         )
         mock_downloader.download.return_value = None
         mock_authenticator = mock.MagicMock(
-            spec_set=Authentication(provider=self.provider, config=config.PluginConfig.from_mapping({}))
+            spec_set=Authentication(
+                provider=self.provider, config=config.PluginConfig.from_mapping({"type": "Download"})
+            )
         )
 
         product.register_downloader(mock_downloader, mock_authenticator)
@@ -228,6 +232,7 @@ class TestEOProduct(EODagTestCase):
                 "foo",
                 PluginConfig.from_mapping(
                     {
+                        "type": "Download",
                         "credentials": {"apikey": "foo"},
                         "headers": {"X-API-Key": "{apikey}"},
                     }
@@ -252,6 +257,7 @@ class TestEOProduct(EODagTestCase):
                 "foo",
                 PluginConfig.from_mapping(
                     {
+                        "type": "Download",
                         "credentials": {"apikey": "foo"},
                     }
                 ),
@@ -274,6 +280,7 @@ class TestEOProduct(EODagTestCase):
                 "foo",
                 PluginConfig.from_mapping(
                     {
+                        "type": "Download",
                         "s3_endpoint": "http://foo.bar",
                     }
                 ),
@@ -282,6 +289,7 @@ class TestEOProduct(EODagTestCase):
                 "foo",
                 PluginConfig.from_mapping(
                     {
+                        "type": "Download",
                         "credentials": {
                             "aws_access_key_id": "foo",
                             "aws_secret_access_key": "bar",
