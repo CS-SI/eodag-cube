@@ -30,9 +30,10 @@ import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
+from boto3.resources.base import ServiceResource
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
-from eodag.plugins.download.aws import AwsDownload
+from eodag.plugins.authentication.aws_auth import AwsAuth
 from eodag.utils import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
@@ -224,17 +225,10 @@ class EOProduct(EOProduct_core):
         :return: The rasterio environment variables
         """
         product_location_scheme = dataset_address.split("://")[0]
-        if "s3" in product_location_scheme and isinstance(self.downloader, AwsDownload):
-            bucket_name, prefix = self.downloader.get_product_bucket_name_and_prefix(self, dataset_address)
-            auth_dict = self.downloader_auth.authenticate() if self.downloader_auth else {}
-            rio_env_dict = (
-                {"session": rasterio.session.AWSSession(**self.downloader.get_rio_env(bucket_name, prefix, auth_dict))}
-                if prefix is not None and isinstance(auth_dict, dict)
-                else {}
-            )
+        if "s3" in product_location_scheme and isinstance(self.downloader_auth, AwsAuth):
+            rio_env_dict = {"session": rasterio.session.AWSSession(**self.downloader_auth.get_rio_env())}
 
-            endpoint_url = getattr(self.downloader.config, "s3_endpoint", None)
-            if endpoint_url:
+            if endpoint_url := self.downloader_auth.s3_resource.meta.client.meta.endpoint_url:
                 aws_s3_endpoint = endpoint_url.split("://")[-1]
                 rio_env_dict.update(
                     AWS_S3_ENDPOINT=aws_s3_endpoint,
@@ -269,20 +263,16 @@ class EOProduct(EOProduct_core):
             raise DatasetCreationError(f"{asset_key} not found in {self} assets") from e
         headers = {**USER_AGENT}
 
-        if isinstance(auth, dict):
+        if isinstance(auth, ServiceResource):
             auth_kwargs: dict[str, Any] = dict()
             # AwsAuth
-            s3_endpoint = getattr(self.downloader.config, "s3_endpoint", None)
-            if s3_endpoint is not None:
-                auth_kwargs["client_kwargs"] = {"endpoint_url": self.downloader.config.s3_endpoint}
-            if "aws_access_key_id" in auth:
-                auth_kwargs["key"] = auth["aws_access_key_id"]
-            if "aws_secret_access_key" in auth:
-                auth_kwargs["secret"] = auth["aws_secret_access_key"]
-            if "aws_session_token" in auth:
-                auth_kwargs["token"] = auth["aws_session_token"]
-            if "profile_name" in auth:
-                auth_kwargs["profile"] = auth["profile_name"]
+            if s3_endpoint := auth.meta.client.meta.endpoint_url:
+                auth_kwargs["client_kwargs"] = {"endpoint_url": s3_endpoint}
+            if creds := self.downloader_auth.s3_session.get_credentials():
+                auth_kwargs["key"] = creds.access_key
+                auth_kwargs["secret"] = creds.secret_key
+                if creds.token:
+                    auth_kwargs["token"] = creds.token
             return {"path": url, **auth_kwargs}
 
         # update url and headers with auth
