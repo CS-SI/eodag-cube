@@ -202,11 +202,12 @@ class TestEOProduct(EODagTestCase):
         product.downloader._get_authenticated_objects_unsigned = mock.MagicMock()
         product.downloader._get_authenticated_objects_unsigned.__name__ = "mocked"
         rio_env = product._get_rio_env("s3://path/to/asset")
-        self.assertEqual(len(rio_env), 1)
         self.assertIsInstance(rio_env["session"], AWSSession)
+        self.assertIn("amazonaws.com", rio_env["AWS_S3_ENDPOINT"])
 
         # aws s3 with custom endpoint
-        product.downloader.config.s3_endpoint = "https://some.where"
+        product.register_downloader(AwsDownload("foo", PluginConfig()), AwsAuth("foo", PluginConfig()))
+        product.downloader_auth.config.s3_endpoint = "https://some.where"
         rio_env = product._get_rio_env("s3://path/to/asset")
         self.assertEqual(len(rio_env), 4)
         self.assertIsInstance(rio_env["session"], AWSSession)
