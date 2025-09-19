@@ -22,7 +22,7 @@ import logging
 import os
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union, cast
 from urllib.parse import urlparse
 
 import fsspec
@@ -30,6 +30,7 @@ import numpy as np
 import rasterio
 import rioxarray
 import xarray as xr
+from boto3 import Session
 from boto3.resources.base import ServiceResource
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
@@ -45,6 +46,7 @@ from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressSchem
 from fsspec.core import OpenFile
 from rasterio.vrt import WarpedVRT
 from requests import PreparedRequest
+from requests.auth import AuthBase
 from requests.structures import CaseInsensitiveDict
 
 from eodag_cube.api.product._assets import AssetsDict
@@ -227,8 +229,11 @@ class EOProduct(EOProduct_core):
         product_location_scheme = dataset_address.split("://")[0]
         if "s3" in product_location_scheme and isinstance(self.downloader_auth, AwsAuth):
             rio_env_dict = {"session": rasterio.session.AWSSession(**self.downloader_auth.get_rio_env())}
+            auth = self.downloader_auth.s3_resource
+            if auth is None:
+                auth = self.downloader_auth.authenticate()
 
-            if endpoint_url := self.downloader_auth.s3_resource.meta.client.meta.endpoint_url:
+            if endpoint_url := auth.meta.client.meta.endpoint_url:
                 aws_s3_endpoint = endpoint_url.split("://")[-1]
                 rio_env_dict.update(
                     AWS_S3_ENDPOINT=aws_s3_endpoint,
@@ -263,26 +268,29 @@ class EOProduct(EOProduct_core):
             raise DatasetCreationError(f"{asset_key} not found in {self} assets") from e
         headers = {**USER_AGENT}
 
-        if isinstance(auth, ServiceResource):
+        if isinstance(auth, ServiceResource) and isinstance(self.downloader_auth, AwsAuth):
             auth_kwargs: dict[str, Any] = dict()
             # AwsAuth
             if s3_endpoint := auth.meta.client.meta.endpoint_url:
                 auth_kwargs["client_kwargs"] = {"endpoint_url": s3_endpoint}
-            if creds := self.downloader_auth.s3_session.get_credentials():
+            if creds := cast(Session, self.downloader_auth.s3_session).get_credentials():
                 auth_kwargs["key"] = creds.access_key
                 auth_kwargs["secret"] = creds.secret_key
                 if creds.token:
                     auth_kwargs["token"] = creds.token
             return {"path": url, **auth_kwargs}
 
-        # update url and headers with auth
-        req = PreparedRequest()
-        req.url = url
-        req.headers = CaseInsensitiveDict(headers)
+        if isinstance(auth, AuthBase):
+            # update url and headers with auth
+            req = PreparedRequest()
+            req.url = url
+            req.headers = CaseInsensitiveDict(headers)
 
-        auth_req = auth(req) if auth else req
+            auth_req = auth(req) if auth else req
 
-        return {"path": auth_req.url, "headers": auth_req.headers}
+            return {"path": auth_req.url, "headers": auth_req.headers}
+
+        return {}
 
     def get_file_obj(
         self,
