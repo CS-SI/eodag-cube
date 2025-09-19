@@ -277,20 +277,13 @@ class TestEOProduct(EODagTestCase):
         product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
         # http s3 auth
         product.register_downloader(
-            Download(
-                "foo",
-                PluginConfig.from_mapping(
-                    {
-                        "type": "Download",
-                        "s3_endpoint": "http://foo.bar",
-                    }
-                ),
-            ),
+            Download("foo", PluginConfig()),
             AwsAuth(
                 "foo",
                 PluginConfig.from_mapping(
                     {
-                        "type": "Download",
+                        "type": "Authentication",
+                        "s3_endpoint": "http://foo.bar",
                         "credentials": {
                             "aws_access_key_id": "foo",
                             "aws_secret_access_key": "bar",
