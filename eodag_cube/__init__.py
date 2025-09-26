@@ -19,7 +19,7 @@
 
 __title__ = "eodag_cube"
 __description__ = "Data access for EODAG"
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 __author__ = "CS GROUP - France"
 __author_email__ = "eodag@csgroup.space"
 __url__ = "https://github.com/CS-SI/eodag-cube"
