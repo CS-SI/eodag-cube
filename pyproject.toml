@@ -12,7 +12,7 @@ authors = [
 ]
 license = {text = "Apache 2.0"}
 dependencies = [
-    "eodag @ git+https://github.com/CS-SI/eodag@develop",
+    "eodag >= 3.9.0",
     "numpy",
     "rasterio",
     "xarray",

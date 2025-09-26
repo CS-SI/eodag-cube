@@ -1,6 +1,24 @@
 Release history
 ---------------
 
+0.6.1 (2025-09-26)
+++++++++++++++++++
+
+Refactoring
+^^^^^^^^^^^
+
+- AwsAuth and rio_env (#102)
+
+Build System
+^^^^^^^^^^^^
+
+- EODAG minimal version to 3.9.0
+
+Testing
+^^^^^^^
+
+- PluginConfig init update (#99)
+
 0.6.0 (2025-05-12)
 ++++++++++++++++++
 
