@@ -103,7 +103,7 @@ class TestEOProduct(EODagTestCase):
         mock_downloader = mock.MagicMock(
             spec_set=Download(
                 provider=self.provider,
-                config=config.PluginConfig.from_mapping({"extract": False, "archive_depth": 1}),
+                config=config.PluginConfig.from_mapping({"type": "Download", "extract": False, "archive_depth": 1}),
             )
         )
 
@@ -116,7 +116,9 @@ class TestEOProduct(EODagTestCase):
         mock_downloader.download.side_effect = mock_download
         # mock_downloader.config = {'extract': False, 'archive_depth': 1}
         mock_authenticator = mock.MagicMock(
-            spec_set=Authentication(provider=self.provider, config=config.PluginConfig.from_mapping({}))
+            spec_set=Authentication(
+                provider=self.provider, config=config.PluginConfig.from_mapping({"type": "Download"})
+            )
         )
 
         product.register_downloader(mock_downloader, mock_authenticator.authenticate())
@@ -152,12 +154,14 @@ class TestEOProduct(EODagTestCase):
         mock_downloader = mock.MagicMock(
             spec_set=Download(
                 provider=self.provider,
-                config=config.PluginConfig.from_mapping({"extract": False}),
+                config=config.PluginConfig.from_mapping({"type": "Download", "extract": False}),
             )
         )
         mock_downloader.download.return_value = None
         mock_authenticator = mock.MagicMock(
-            spec_set=Authentication(provider=self.provider, config=config.PluginConfig.from_mapping({}))
+            spec_set=Authentication(
+                provider=self.provider, config=config.PluginConfig.from_mapping({"type": "Download"})
+            )
         )
 
         product.register_downloader(mock_downloader, mock_authenticator)
@@ -198,11 +202,12 @@ class TestEOProduct(EODagTestCase):
         product.downloader._get_authenticated_objects_unsigned = mock.MagicMock()
         product.downloader._get_authenticated_objects_unsigned.__name__ = "mocked"
         rio_env = product._get_rio_env("s3://path/to/asset")
-        self.assertEqual(len(rio_env), 1)
         self.assertIsInstance(rio_env["session"], AWSSession)
+        self.assertIn("amazonaws.com", rio_env["AWS_S3_ENDPOINT"])
 
         # aws s3 with custom endpoint
-        product.downloader.config.s3_endpoint = "https://some.where"
+        product.register_downloader(AwsDownload("foo", PluginConfig()), AwsAuth("foo", PluginConfig()))
+        product.downloader_auth.config.s3_endpoint = "https://some.where"
         rio_env = product._get_rio_env("s3://path/to/asset")
         self.assertEqual(len(rio_env), 4)
         self.assertIsInstance(rio_env["session"], AWSSession)
@@ -228,6 +233,7 @@ class TestEOProduct(EODagTestCase):
                 "foo",
                 PluginConfig.from_mapping(
                     {
+                        "type": "Download",
                         "credentials": {"apikey": "foo"},
                         "headers": {"X-API-Key": "{apikey}"},
                     }
@@ -252,6 +258,7 @@ class TestEOProduct(EODagTestCase):
                 "foo",
                 PluginConfig.from_mapping(
                     {
+                        "type": "Download",
                         "credentials": {"apikey": "foo"},
                     }
                 ),
@@ -270,18 +277,13 @@ class TestEOProduct(EODagTestCase):
         product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
         # http s3 auth
         product.register_downloader(
-            Download(
-                "foo",
-                PluginConfig.from_mapping(
-                    {
-                        "s3_endpoint": "http://foo.bar",
-                    }
-                ),
-            ),
+            Download("foo", PluginConfig()),
             AwsAuth(
                 "foo",
                 PluginConfig.from_mapping(
                     {
+                        "type": "Authentication",
+                        "s3_endpoint": "http://foo.bar",
                         "credentials": {
                             "aws_access_key_id": "foo",
                             "aws_secret_access_key": "bar",
