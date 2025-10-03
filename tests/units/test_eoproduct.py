@@ -272,10 +272,9 @@ class TestEOProduct(EODagTestCase):
             },
         )
 
-    def test_get_storage_options_s3(self):
-        """_get_storage_options should be adapted to the provider config"""
+    def test_get_storage_options_s3_credentials_endpoint(self):
+        """_get_storage_options should be adapted to the provider config using s3 credentials and endpoint"""
         product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
-        # http s3 auth
         product.register_downloader(
             Download("foo", PluginConfig()),
             AwsAuth(
@@ -284,6 +283,38 @@ class TestEOProduct(EODagTestCase):
                     {
                         "type": "Authentication",
                         "s3_endpoint": "http://foo.bar",
+                        "credentials": {
+                            "aws_access_key_id": "foo",
+                            "aws_secret_access_key": "bar",
+                            "aws_session_token": "baz",
+                        },
+                        "requester_pays": True,
+                    }
+                ),
+            ),
+        )
+        self.assertDictEqual(
+            product._get_storage_options(),
+            {
+                "path": self.download_url,
+                "key": "foo",
+                "secret": "bar",
+                "token": "baz",
+                "client_kwargs": {"endpoint_url": "http://foo.bar"},
+                "requester_pays": True,
+            },
+        )
+
+    def test_get_storage_options_s3_credentials(self):
+        """_get_storage_options should be adapted to the provider config using s3 credentials"""
+        product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
+        product.register_downloader(
+            Download("foo", PluginConfig()),
+            AwsAuth(
+                "foo",
+                PluginConfig.from_mapping(
+                    {
+                        "type": "Authentication",
                         "credentials": {
                             "aws_access_key_id": "foo",
                             "aws_secret_access_key": "bar",
@@ -300,7 +331,25 @@ class TestEOProduct(EODagTestCase):
                 "key": "foo",
                 "secret": "bar",
                 "token": "baz",
-                "client_kwargs": {"endpoint_url": "http://foo.bar"},
+            },
+        )
+
+    @mock.patch("boto3.Session.get_credentials", return_value=None)
+    def test_get_storage_options_s3_anon(self, mock_get_credentials):
+        """_get_storage_options should be adapted to the provider config using anonymous s3 access"""
+        product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
+        product.register_downloader(
+            Download("foo", PluginConfig()),
+            AwsAuth(
+                "foo",
+                PluginConfig.from_mapping({"type": "Authentication", "requester_pays": True}),
+            ),
+        )
+        self.assertDictEqual(
+            product._get_storage_options(),
+            {
+                "path": self.download_url,
+                "anon": True,
             },
         )
 
