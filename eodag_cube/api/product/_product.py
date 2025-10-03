@@ -271,13 +271,17 @@ class EOProduct(EOProduct_core):
         if isinstance(auth, ServiceResource) and isinstance(self.downloader_auth, AwsAuth):
             auth_kwargs: dict[str, Any] = dict()
             # AwsAuth
-            if s3_endpoint := auth.meta.client.meta.endpoint_url:
+            if s3_endpoint := getattr(self.downloader_auth.config, "s3_endpoint", None):
                 auth_kwargs["client_kwargs"] = {"endpoint_url": s3_endpoint}
             if creds := cast(Session, self.downloader_auth.s3_session).get_credentials():
                 auth_kwargs["key"] = creds.access_key
                 auth_kwargs["secret"] = creds.secret_key
                 if creds.token:
                     auth_kwargs["token"] = creds.token
+                if requester_pays := getattr(self.downloader_auth.config, "requester_pays", False):
+                    auth_kwargs["requester_pays"] = requester_pays
+            else:
+                auth_kwargs["anon"] = True
             return {"path": url, **auth_kwargs}
 
         if isinstance(auth, AuthBase):
