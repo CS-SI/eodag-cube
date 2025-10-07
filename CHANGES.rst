@@ -1,5 +1,6 @@
+===============
 Release history
----------------
+===============
 
 .. _changelog-unreleased:
 
