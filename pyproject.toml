@@ -116,3 +116,17 @@ ignore = [
 
 [tool.ruff.lint.mccabe]
 max-complexity = 18
+
+[tool.semantic_release.branches.main]
+match = "(master|develop|new-release)"
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = [
+    '''build: bump version.+''',
+]
+mode = "update"
+insertion_flag = "===============\nRelease history\n==============="
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGES.rst"
+output_format = "rst"
