@@ -125,7 +125,7 @@ exclude_commit_patterns = [
     '''build: bump version.+''',
 ]
 mode = "update"
-insertion_flag = "Release history\n---------------"
+insertion_flag = "===============\nRelease history\n==============="
 
 [tool.semantic_release.changelog.default_templates]
 changelog_file = "CHANGES.rst"
