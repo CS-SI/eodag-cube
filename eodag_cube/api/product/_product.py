@@ -294,7 +294,7 @@ class EOProduct(EOProduct_core):
 
             return {"path": auth_req.url, "headers": auth_req.headers}
 
-        return {}
+        return {"path": url}
 
     def get_file_obj(
         self,
