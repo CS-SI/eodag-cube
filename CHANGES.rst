@@ -4,6 +4,20 @@ Release history
 
 .. _changelog-unreleased:
 
+v0.7.0a1 (2025-10-20)
+=====================
+
+Refactoring
+-----------
+
+* Eodag v4 usage and remove deprecated ``get_data`` (`#109`_, `42b4841`_)
+
+.. _#109: https://github.com/CS-SI/eodag-cube/pull/109
+.. _42b4841: https://github.com/CS-SI/eodag-cube/commit/42b4841492f76320c05c03dec8fca6fa3ba38cf8
+
+
+.. _changelog-unreleased:
+
 v0.6.3 (2025-10-20)
 ===================
 
