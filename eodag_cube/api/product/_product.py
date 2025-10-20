@@ -20,16 +20,13 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import os
-from contextlib import contextmanager, nullcontext
+from contextlib import nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union, cast
+from typing import Any, Iterable, Optional, Union, cast
 from urllib.parse import urlparse
 
 import fsspec
-import numpy as np
 import rasterio
-import rioxarray
-import xarray as xr
 from boto3 import Session
 from boto3.resources.base import ServiceResource
 from eodag.api.product._product import EOProduct as EOProduct_core
@@ -39,12 +36,9 @@ from eodag.utils import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
     USER_AGENT,
-    _deprecated,
-    get_geometry_from_various,
 )
-from eodag.utils.exceptions import DownloadError, UnsupportedDatasetAddressScheme
+from eodag.utils.exceptions import UnsupportedDatasetAddressScheme
 from fsspec.core import OpenFile
-from rasterio.vrt import WarpedVRT
 from requests import PreparedRequest
 from requests.auth import AuthBase
 from requests.structures import CaseInsensitiveDict
@@ -53,12 +47,6 @@ from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
 from eodag_cube.utils.xarray import try_open_dataset
-
-if TYPE_CHECKING:
-    # from fsspec.core import OpenFile
-    from rasterio.enums import Resampling
-    from shapely.geometry.base import BaseGeometry
-    from xarray import DataArray, Dataset
 
 logger = logging.getLogger("eodag-cube.api.product")
 
@@ -77,8 +65,8 @@ class EOProduct(EOProduct_core):
 
     :param provider: The provider from which the product originates
     :param properties: The metadata of the product
-    :ivar product_type: The product type
-    :vartype product_type: str
+    :ivar collection: The collection
+    :vartype collection: str
     :ivar location: The path to the product, either remote or local if downloaded
     :vartype location: str
     :ivar remote_location: The remote path to the product
@@ -104,121 +92,6 @@ class EOProduct(EOProduct_core):
         core_assets_data = self.assets.data
         self.assets = AssetsDict(self)
         self.assets.update(core_assets_data)
-
-    @_deprecated("Use to_xarray instead")
-    def get_data(
-        self,
-        band: str,
-        crs: Optional[str] = None,
-        resolution: Optional[float] = None,
-        extent: Optional[Union[str, dict[str, float], list[float], BaseGeometry]] = None,
-        resampling: Optional[Resampling] = None,
-        **rioxr_kwargs: Any,
-    ) -> Union[Dataset, DataArray, list[Dataset]]:
-        """Retrieves all or part of the raster data abstracted by the :class:`EOProduct`
-
-        :param band: The band of the dataset to retrieve (e.g.: 'B01')
-        :param crs: (optional) The coordinate reference system in which the dataset should be returned
-        :param resolution: (optional) The resolution in which the dataset should be returned
-                            (given in the unit of the crs)
-        :param extent: (optional) The coordinates on which to zoom, matching the given CRS. Can be defined in
-                    different ways (its bounds will be used):
-
-                    * with a Shapely geometry object:
-                      :class:`shapely.geometry.base.BaseGeometry`
-                    * with a bounding box (dict with keys: "lonmin", "latmin", "lonmax", "latmax"):
-                      ``dict.fromkeys(["lonmin", "latmin", "lonmax", "latmax"])``
-                    * with a bounding box as list of float:
-                      ``[lonmin, latmin, lonmax, latmax]``
-                    * with a WKT str
-
-        :param resampling: (optional) Warp resampling algorithm passed to :class:`rasterio.vrt.WarpedVRT`
-        :param rioxr_kwargs: kwargs passed to :func:`rioxarray.open_rasterio`
-        :returns: The numeric matrix corresponding to the sub dataset or an empty
-                    array if unable to get the data
-
-        .. deprecated:: 0.6.0b1
-           Use the :meth:`eodag_cube.api.product._product.EOProduct.to_xarray` method instead.
-        """
-        fail_value = xr.DataArray(np.empty(0))
-        try:
-            logger.debug("Getting data address")
-            dataset_address = self.driver.legacy.get_data_address(self, band)
-        except UnsupportedDatasetAddressScheme:
-            logger.warning(
-                "Eodag does not support getting data from distant sources by now. "
-                "Falling back to first downloading the product and then getting the "
-                "data..."
-            )
-            try:
-                path_of_downloaded_file = self.download(extract=True)
-            except (RuntimeError, DownloadError):
-                import traceback
-
-                logger.warning(
-                    "Error while trying to download the product:\n %s",
-                    traceback.format_exc(),
-                )
-                logger.warning(
-                    "There might be no download plugin registered for this EO product. "
-                    "Try performing: product.register_downloader(download_plugin, "
-                    "auth_plugin) before trying to call product.get_data(...)"
-                )
-                return fail_value
-            if not path_of_downloaded_file:
-                return fail_value
-            dataset_address = self.driver.legacy.get_data_address(self, band)
-
-        clip_geom = get_geometry_from_various(geometry=extent) if extent else self.geometry
-        clip_bounds = clip_geom.bounds
-        minx, miny, maxx, maxy = clip_bounds
-
-        # rasterio/gdal needed env variables for auth
-        gdal_env = self._get_rio_env(dataset_address)
-
-        warped_vrt_args = {}
-        if crs is not None:
-            warped_vrt_args["crs"] = crs
-        if resampling is not None:
-            warped_vrt_args["resampling"] = resampling
-
-        @contextmanager
-        def pass_resource(resource: Any, **kwargs: Any) -> Any:
-            yield resource
-
-        if warped_vrt_args:
-            warped_vrt_class = WarpedVRT
-        else:
-            warped_vrt_class = pass_resource
-
-        logger.debug(f"Getting data from {dataset_address}")
-
-        try:
-            with rasterio.Env(**gdal_env):
-                with rasterio.open(dataset_address) as src:
-                    with warped_vrt_class(src, **warped_vrt_args) as vrt:
-                        da = rioxarray.open_rasterio(vrt, **rioxr_kwargs)
-                        if extent and hasattr(da, "rio"):
-                            da = da.rio.clip_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
-                        if resolution and hasattr(da, "rio"):
-                            height = int((maxy - miny) / resolution)
-                            width = int((maxx - minx) / resolution)
-                            out_shape = (height, width)
-
-                            reproject_args = {}
-                            if crs is not None:
-                                reproject_args["dst_crs"] = crs
-                            if resampling is not None:
-                                reproject_args["resampling"] = resampling
-
-                            da = da.rio.reproject(
-                                shape=out_shape,
-                                **reproject_args,
-                            )
-                        return da
-        except Exception as e:
-            logger.error(e)
-            return fail_value
 
     def _get_rio_env(self, dataset_address: str) -> dict[str, Any]:
         """Get rasterio environment variables needed for data access.
@@ -258,7 +131,7 @@ class EOProduct(EOProduct_core):
             return {}
 
         # order if product is offline
-        if self.properties.get("storageStatus") == OFFLINE_STATUS and hasattr(self.downloader, "order"):
+        if self.properties.get("order:status") == OFFLINE_STATUS and hasattr(self.downloader, "order"):
             self.downloader.order(self, auth, wait=wait, timeout=timeout)
 
         # default url and headers

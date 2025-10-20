@@ -18,21 +18,18 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
 
 import xarray as xr
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
-from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT, _deprecated
+from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT
 
 if TYPE_CHECKING:
     from contextlib import nullcontext
 
     from fsspec.core import OpenFile
-    from rasterio.enums import Resampling
     from rasterio.env import Env
-    from shapely.geometry.base import BaseGeometry
-    from xarray import DataArray
 
 logger = logging.getLogger("eodag-cube.api.product")
 
@@ -59,49 +56,6 @@ class Asset(Asset_core):
     :param args: (optional) Arguments used to init the dictionary
     :param kwargs: (optional) Additional named-arguments used to init the dictionary
     """
-
-    @_deprecated("Use to_xarray instead")
-    def get_data(
-        self,
-        crs: Optional[str] = None,
-        resolution: Optional[float] = None,
-        extent: Optional[Union[str, Dict[str, float], List[float], BaseGeometry]] = None,
-        resampling: Optional[Resampling] = None,
-        **rioxr_kwargs: Any,
-    ) -> DataArray:
-        """Retrieves asset raster data abstracted by the :class:`eodag.api.product._product.EOProduct`
-
-        :param crs: (optional) The coordinate reference system in which the dataset should be returned
-        :param resolution: (optional) The resolution in which the dataset should be returned
-                            (given in the unit of the crs)
-        :param extent: (optional) The coordinates on which to zoom, matching the given CRS. Can be defined in
-                    different ways (its bounds will be used):
-
-                    * with a Shapely geometry object:
-                      :class:`shapely.geometry.base.BaseGeometry`
-                    * with a bounding box (dict with keys: "lonmin", "latmin", "lonmax", "latmax"):
-                      ``dict.fromkeys(["lonmin", "latmin", "lonmax", "latmax"])``
-                    * with a bounding box as list of float:
-                      ``[lonmin, latmin, lonmax, latmax]``
-                    * with a WKT str
-
-        :param resampling: (optional) Warp resampling algorithm passed to :class:`rasterio.vrt.WarpedVRT`
-        :param rioxr_kwargs: kwargs passed to :func:`rioxarray.open_rasterio`
-        :returns: The numeric matrix corresponding to the sub dataset or an empty
-                    array if unable to get the data
-
-        .. deprecated:: 0.6.0b1
-           Use the :meth:`eodag_cube.api.product._assets.Asset.to_xarray` method instead.
-        """
-        band_pattern = rf"^{self.key}$"
-        return self.product.get_data(
-            band=band_pattern,
-            crs=crs,
-            resolution=resolution,
-            extent=extent,
-            resampling=resampling,
-            **rioxr_kwargs,
-        )
 
     def get_file_obj(
         self,

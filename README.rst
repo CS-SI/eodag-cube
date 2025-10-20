@@ -52,7 +52,7 @@ Example usage for interacting with the api in your Python code:
     dag = EODataAccessGateway()
     search_criteria = dict(
         provider='earth_search',
-        productType='S2_MSI_L1C',
+        collection='S2_MSI_L1C',
         geom=[1, 43.5, 2, 44],
         start='2020-06-04',
         end='2020-06-05',

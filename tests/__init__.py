@@ -21,7 +21,7 @@ import shutil
 import unittest
 from unittest import mock  # PY3
 
-from eodag.api.product.metadata_mapping import DEFAULT_METADATA_MAPPING
+from eodag.types.queryables import Queryables
 from shapely import wkt
 
 jp = os.path.join
@@ -76,9 +76,9 @@ class EODagTestCase(unittest.TestCase):
             "lonmax": 1.6754150390625007,
             "latmax": 43.699651229671446,
         }
-        self.product_type = "S2_MSI_L1C"
+        self.collection = "S2_MSI_L1C"
         self.platform = "S2A"
-        self.instrument = "MSI"
+        self.instruments = ["MSI"]
         self.provider_id = "9deb7e78-9341-5530-8fe8-f81fd99c9f0f"
 
         self.eoproduct_props = {
@@ -95,16 +95,16 @@ class EODagTestCase(unittest.TestCase):
                     ]
                 ],
             },
-            "productType": self.product_type,
-            "platform": "Sentinel-2",
-            "platformSerialIdentifier": self.platform,
-            "instrument": self.instrument,
+            "collection": self.collection,
+            "constellation": "Sentinel-2",
+            "platform": self.platform,
+            "instruments": self.instruments,
             "title": self.local_filename,
-            "downloadLink": self.download_url,
+            "eodag:download_link": self.download_url,
         }
         # Put an empty string as value of properties which are not relevant for the
         # tests
-        self.eoproduct_props.update({key: "" for key in DEFAULT_METADATA_MAPPING if key not in self.eoproduct_props})
+        self.eoproduct_props.update({key: "" for key in Queryables.model_fields if key not in self.eoproduct_props})
 
         self.requests_http_get_patcher = mock.patch("requests.get", autospec=True)
         self.requests_http_post_patcher = mock.patch("requests.post", autospec=True)
