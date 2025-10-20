@@ -4,6 +4,20 @@ Release history
 
 .. _changelog-unreleased:
 
+v0.6.3 (2025-10-20)
+===================
+
+Bug Fixes
+---------
+
+* ``get_file_obj`` without auth and http (`#107`_, `44c0240`_)
+
+.. _#107: https://github.com/CS-SI/eodag-cube/pull/107
+.. _44c0240: https://github.com/CS-SI/eodag-cube/commit/44c02408dab86e64a23b11c75e5aab8aa45104c4
+
+
+.. _changelog-unreleased:
+
 v0.6.2 (2025-10-07)
 ===================
 
