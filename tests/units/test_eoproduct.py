@@ -248,6 +248,21 @@ class TestEOProduct(EODagTestCase):
             },
         )
 
+    def test_get_storage_options_http_no_auth(self):
+        """_get_storage_options should be return path when no auth"""
+        product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
+        # http headers auth
+        product.register_downloader(
+            Download("foo", PluginConfig()),
+            None,
+        )
+        self.assertDictEqual(
+            product._get_storage_options(),
+            {
+                "path": self.download_url,
+            },
+        )
+
     def test_get_storage_options_http_qs(self):
         """_get_storage_options should be adapted to the provider config"""
         product = EOProduct(self.provider, self.eoproduct_props, productType=self.product_type)
