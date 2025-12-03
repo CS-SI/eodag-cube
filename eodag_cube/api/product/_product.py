@@ -355,34 +355,43 @@ class EOProduct(EOProduct_core):
         information from its xarray representation.
         :returns: updated EOProduct
         """
-        xd = self.to_xarray()
-        dims, vars_ = {}, {}
+        for asset_key, asset in self.assets.items():
+            try:
+                xd = self.to_xarray(asset_key=asset_key)
+            except Exception:
+                continue
 
-        for _, ds in xd.items():
-            # dimensions
-            for dim_name, _ in ds.sizes.items():
-                if dim_name in dims:
-                    continue
-                if str(dim_name).lower() == "time":
-                    values = ds[dim_name].values.tolist()
-                    dims[dim_name] = {"type": "temporal", "values": values, "extent": [str(values[0]), str(values[-1])]}
-                elif str(dim_name).lower() in ("x", "y", "lon", "lat"):
-                    values = ds[dim_name].values.tolist() if dim_name in ds.coords else None
-                    dims[dim_name] = {
-                        "type": "spatial",
-                        "axis": str(dim_name).lower(),
-                        "extent": [float(values[0]), float(values[-1])] if values else None,
-                    }
-                else:
-                    dims[dim_name] = {
-                        "type": "other",
-                        "values": ds[dim_name].values.tolist() if dim_name in ds.coords else None,
+            dimensions = {}
+            variables = {}
+
+            for _, ds in xd.items():
+                # Dimensions
+                for dim_name, _ in ds.sizes.items():
+                    dim_name_str = str(dim_name)
+                    dim_entry: dict[str, Any] = {
+                        "type": "spatial"
+                        if dim_name_str in ("x", "y", "lon", "lat")
+                        else "temporal"
+                        if dim_name_str == "time"
+                        else "other"
                     }
 
-            # variables
-            for var_name, var in ds.data_vars.items():
-                vars_[var_name] = {"dimensions": list(var.dims), "variable_type": "data", "data_type": str(var.dtype)}
+                    # Add extent or values if available
+                    if dim_name_str in ds.coords:
+                        values = ds[dim_name_str].values
+                        if values.ndim == 1:
+                            dim_entry["values"] = values.tolist()
+                        else:
+                            dim_entry["extent"] = [float(values.min()), float(values.max())]
 
-        self.properties["cube:dimensions"] = dims
-        self.properties["cube:variables"] = vars_
+                    dimensions[dim_name_str] = dim_entry
+
+                # Variables
+                for var_name, var in ds.data_vars.items():
+                    variables[str(var_name)] = {"dimensions": list(var.dims), "type": "data"}
+
+            asset.setdefault("properties", {})
+            asset["properties"]["cube:dimensions"] = dimensions
+            asset["properties"]["cube:variables"] = variables
+
         return self
