@@ -348,3 +348,41 @@ class EOProduct(EOProduct_core):
             xd.sort()
 
             return xd
+
+    def augment_from_xarray(self) -> EOProduct:
+        """
+        Annotate the product properties with dimensions and variables
+        information from its xarray representation.
+        :returns: updated EOProduct
+        """
+        xd = self.to_xarray()
+        dims, vars_ = {}, {}
+
+        for _, ds in xd.items():
+            # dimensions
+            for dim_name, _ in ds.sizes.items():
+                if dim_name in dims:
+                    continue
+                if str(dim_name).lower() == "time":
+                    values = ds[dim_name].values.tolist()
+                    dims[dim_name] = {"type": "temporal", "values": values, "extent": [str(values[0]), str(values[-1])]}
+                elif str(dim_name).lower() in ("x", "y", "lon", "lat"):
+                    values = ds[dim_name].values.tolist() if dim_name in ds.coords else None
+                    dims[dim_name] = {
+                        "type": "spatial",
+                        "axis": str(dim_name).lower(),
+                        "extent": [float(values[0]), float(values[-1])] if values else None,
+                    }
+                else:
+                    dims[dim_name] = {
+                        "type": "other",
+                        "values": ds[dim_name].values.tolist() if dim_name in ds.coords else None,
+                    }
+
+            # variables
+            for var_name, var in ds.data_vars.items():
+                vars_[var_name] = {"dimensions": list(var.dims), "variable_type": "data", "data_type": str(var.dtype)}
+
+        self.properties["cube:dimensions"] = dims
+        self.properties["cube:variables"] = vars_
+        return self
