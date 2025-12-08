@@ -349,7 +349,7 @@ class EOProduct(EOProduct_core):
 
             return xd
 
-    def _build_cube_metadata(self, ds_dict: dict) -> tuple[dict, dict]:
+    def _build_cube_metadata(self, ds_dict: XarrayDict) -> tuple[dict, dict]:
         """
         Build cube:dimensions and cube:variables from a dict of xarray.Dataset.
 
