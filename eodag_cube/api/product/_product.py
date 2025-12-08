@@ -349,49 +349,80 @@ class EOProduct(EOProduct_core):
 
             return xd
 
+    def _build_cube_metadata(self, ds_dict: dict) -> tuple[dict, dict]:
+        """
+        Build cube:dimensions and cube:variables from a dict of xarray.Dataset.
+
+        :param ds_dict: dictionary of xarray.Dataset
+        :return: tuple (dimensions_dict, variables_dict)
+        """
+        dimensions = {}
+        variables = {}
+
+        for ds in ds_dict.values():
+            # Dimensions
+            for dim_name in ds.sizes.keys():
+                dim_name_str = str(dim_name)
+
+                # Type
+                dim_type = (
+                    "spatial"
+                    if dim_name_str in ("x", "y", "lon", "lat")
+                    else "temporal"
+                    if dim_name_str == "time"
+                    else "other"
+                )
+
+                dim_entry: dict[str, Any] = {"type": dim_type}
+
+                # Extent or values
+                if dim_name_str in ds.coords:
+                    values = ds[dim_name_str].values
+                    if values.ndim == 1:
+                        dim_entry["values"] = values.tolist()
+                    else:
+                        dim_entry["extent"] = [float(values.min()), float(values.max())]
+
+                if dim_type != "temporal":
+                    # Reference system
+                    epsg_code = 4326  # default
+                    if hasattr(ds, "rio") and hasattr(ds.rio, "crs") and ds.rio.crs is not None:
+                        epsg_code = ds.rio.crs.to_epsg()
+                    dim_entry["reference_system"] = epsg_code
+
+                dimensions[dim_name_str] = dim_entry
+
+            # Variables
+            for var_name, var in ds.data_vars.items():
+                variables[str(var_name)] = {"dimensions": list(var.dims), "type": "data"}
+
+        return dimensions, variables
+
     def augment_from_xarray(self) -> EOProduct:
         """
         Annotate the product properties with dimensions and variables
         information from its xarray representation.
         :returns: updated EOProduct
         """
-        for asset_key, asset in self.assets.items():
+        if not self.assets:
             try:
-                xd = self.to_xarray(asset_key=asset_key)
+                xd = self.to_xarray()
             except Exception:
-                continue
+                return self
 
-            dimensions = {}
-            variables = {}
+            dimensions, variables = self._build_cube_metadata(xd)
+            self.properties["cube:dimensions"] = dimensions
+            self.properties["cube:variables"] = variables
 
-            for _, ds in xd.items():
-                # Dimensions
-                for dim_name, _ in ds.sizes.items():
-                    dim_name_str = str(dim_name)
-                    dim_entry: dict[str, Any] = {
-                        "type": "spatial"
-                        if dim_name_str in ("x", "y", "lon", "lat")
-                        else "temporal"
-                        if dim_name_str == "time"
-                        else "other"
-                    }
+        else:
+            for asset_key, asset in self.assets.items():
+                try:
+                    xd = self.to_xarray(asset_key=asset_key)
+                except Exception:
+                    continue
 
-                    # Add extent or values if available
-                    if dim_name_str in ds.coords:
-                        values = ds[dim_name_str].values
-                        if values.ndim == 1:
-                            dim_entry["values"] = values.tolist()
-                        else:
-                            dim_entry["extent"] = [float(values.min()), float(values.max())]
-
-                    dimensions[dim_name_str] = dim_entry
-
-                # Variables
-                for var_name, var in ds.data_vars.items():
-                    variables[str(var_name)] = {"dimensions": list(var.dims), "type": "data"}
-
-            asset.setdefault("properties", {})
-            asset["properties"]["cube:dimensions"] = dimensions
-            asset["properties"]["cube:variables"] = variables
+                dimensions, variables = self._build_cube_metadata(xd)
+                asset["cube:dimensions"] = dimensions
+                asset["cube:variables"] = variables
 
         return self
