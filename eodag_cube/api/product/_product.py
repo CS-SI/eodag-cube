@@ -26,6 +26,7 @@ from typing import Any, Iterable, Optional, Union, cast
 from urllib.parse import urlparse
 
 import fsspec
+import numpy as np
 import rasterio
 from boto3 import Session
 from boto3.resources.base import ServiceResource
@@ -360,6 +361,17 @@ class EOProduct(EOProduct_core):
         variables = {}
 
         for ds in ds_dict.values():
+            epsg_code = None
+            proj_bbox = None
+
+            if hasattr(ds, "rio") and ds.rio.crs is not None:
+                epsg_code = ds.rio.crs.to_epsg()
+                try:
+                    proj_bbox = list(ds.rio.bounds())
+                except Exception:
+                    proj_bbox = None
+            epsg_code = epsg_code or 4326
+
             # Dimensions
             for dim_name in ds.sizes.keys():
                 dim_name_str = str(dim_name)
@@ -375,20 +387,48 @@ class EOProduct(EOProduct_core):
 
                 dim_entry: dict[str, Any] = {"type": dim_type}
 
-                # Extent or values
-                if dim_name_str in ds.coords:
-                    values = ds[dim_name_str].values
-                    if values.ndim == 1:
-                        dim_entry["values"] = values.tolist()
-                    else:
-                        dim_entry["extent"] = [float(values.min()), float(values.max())]
+                if dim_type == "spatial":
+                    # Axis
+                    if dim_name_str in ("x", "lon"):
+                        dim_entry["axis"] = "x"
+                    elif dim_name_str in ("y", "lat"):
+                        dim_entry["axis"] = "y"
+                    elif dim_name_str == "z":
+                        dim_entry["axis"] = "z"
 
-                if dim_type != "temporal":
-                    # Reference system
-                    epsg_code = 4326  # default
-                    if hasattr(ds, "rio") and hasattr(ds.rio, "crs") and ds.rio.crs is not None:
-                        epsg_code = ds.rio.crs.to_epsg()
                     dim_entry["reference_system"] = epsg_code
+                    dim_entry["proj:code"] = epsg_code
+
+                    if proj_bbox is not None:
+                        dim_entry["proj:bbox"] = proj_bbox
+
+                    # Extent + step
+                    if dim_name_str in ds.coords:
+                        values = ds[dim_name_str].values
+                        dim_entry["extent"] = [
+                            float(np.nanmin(values)),
+                            float(np.nanmax(values)),
+                        ]
+
+                        if values.ndim == 1 and values.size > 1:
+                            diffs = np.diff(values)
+                            dim_entry["step"] = float(diffs[0]) if np.allclose(diffs, diffs[0]) else None
+
+                elif dim_type == "temporal":
+                    values = ds[dim_name_str].values
+                    dim_entry["extent"] = [
+                        str(values.min()),
+                        str(values.max()),
+                    ]
+
+                    if values.size > 1:
+                        diffs = np.diff(values.astype("datetime64[ns]"))
+                        dim_entry["step"] = str(diffs[0]) if np.all(diffs == diffs[0]) else None
+                else:
+                    if dim_name_str in ds.coords:
+                        values = ds[dim_name_str].values
+                        if values.ndim == 1:
+                            dim_entry["values"] = values.tolist()
 
                 dimensions[dim_name_str] = dim_entry
 
