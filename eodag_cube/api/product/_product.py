@@ -402,33 +402,24 @@ class EOProduct(EOProduct_core):
                     if proj_bbox is not None:
                         dim_entry["proj:bbox"] = proj_bbox
 
-                    # Extent + step
-                    if dim_name_str in ds.coords:
-                        values = ds[dim_name_str].values
-                        dim_entry["extent"] = [
-                            float(np.nanmin(values)),
-                            float(np.nanmax(values)),
-                        ]
-
-                        if values.ndim == 1 and values.size > 1:
-                            diffs = np.diff(values)
-                            dim_entry["step"] = float(diffs[0]) if np.allclose(diffs, diffs[0]) else None
-
-                elif dim_type == "temporal":
+                if dim_name_str in ds.coords:
                     values = ds[dim_name_str].values
-                    dim_entry["extent"] = [
-                        str(values.min()),
-                        str(values.max()),
-                    ]
-
-                    if values.size > 1:
-                        diffs = np.diff(values.astype("datetime64[ns]"))
-                        dim_entry["step"] = str(diffs[0]) if np.all(diffs == diffs[0]) else None
-                else:
-                    if dim_name_str in ds.coords:
-                        values = ds[dim_name_str].values
-                        if values.ndim == 1:
+                    if values.ndim == 1:
+                        if values.size <= 10:
                             dim_entry["values"] = values.tolist()
+                        else:
+                            dim_entry["extent"] = (
+                                [float(values.min()), float(values.max())]
+                                if np.issubdtype(values.dtype, np.number)
+                                else [str(values.min()), str(values.max())]
+                            )
+                            diffs = np.diff(values)
+                            if np.allclose(diffs, diffs[0]):
+                                dim_entry["step"] = (
+                                    float(diffs[0]) if np.issubdtype(values.dtype, np.number) else str(diffs[0])
+                                )
+                    else:
+                        dim_entry["extent"] = [float(np.nanmin(values)), float(np.nanmax(values))]
 
                 dimensions[dim_name_str] = dim_entry
 
@@ -437,6 +428,47 @@ class EOProduct(EOProduct_core):
                 variables[str(var_name)] = {"dimensions": list(var.dims), "type": "data"}
 
         return dimensions, variables
+
+    def _build_bands(self, xd: XarrayDict) -> list[dict]:
+        """
+        Build STAC bands metadata from xarray datasets.
+        If names are not available, use generic band names.
+        """
+        band_count = 0
+
+        for ds in xd.values():
+            for var in ds.data_vars.values():
+                for dim in var.dims:
+                    if str(dim).lower() in ("band", "bands"):
+                        band_count = ds.sizes[dim]
+                        break
+                if band_count:
+                    break
+
+            if band_count:
+                break
+
+        if band_count == 0:
+            band_count = len(next(iter(xd.values())).data_vars)
+
+        return [{"name": f"band{i + 1}"} for i in range(band_count)]
+
+    def _merge_bands(self, existing_bands: list[dict], new_bands: list[dict]) -> list[dict]:
+        """
+        Merge existing bands metadata with newly generated ones from xarray.
+        Existing bands metadata take precedence over generated ones.
+        """
+        merged = []
+
+        for i, band in enumerate(existing_bands):
+            band = dict(band)
+            band.setdefault("name", f"band{i + 1}")
+            merged.append(band)
+
+        for i in range(len(existing_bands), len(new_bands)):
+            merged.append(new_bands[i])
+
+        return merged
 
     def augment_from_xarray(self) -> EOProduct:
         """
@@ -453,6 +485,7 @@ class EOProduct(EOProduct_core):
             dimensions, variables = self._build_cube_metadata(xd)
             self.properties["cube:dimensions"] = dimensions
             self.properties["cube:variables"] = variables
+            self.properties["bands"] = self._build_bands(xd)
 
         else:
             for asset_key, asset in self.assets.items():
@@ -464,5 +497,11 @@ class EOProduct(EOProduct_core):
                 dimensions, variables = self._build_cube_metadata(xd)
                 asset["cube:dimensions"] = dimensions
                 asset["cube:variables"] = variables
+
+                generated_bands = self._build_bands(xd)
+                if "bands" in asset:
+                    asset["bands"] = self._merge_bands(asset["bands"], generated_bands)
+                else:
+                    asset["bands"] = generated_bands
 
         return self
