@@ -98,7 +98,6 @@ If you intend to contribute to eodag-cube source code::
     git clone https://github.com/CS-SI/eodag-cube.git
     cd eodag-cube
     python -m pip install -e .[dev]
-    pre-commit install
     tox
 
 LICENSE
