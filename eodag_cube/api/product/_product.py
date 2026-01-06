@@ -359,13 +359,17 @@ class EOProduct(EOProduct_core):
         :return: dictionary with projection information
         """
         proj_info: dict[str, Any] = {}
+
+        epsg_code = 4326
+        proj_bbox = None
+
         if hasattr(ds, "rio") and ds.rio.crs is not None:
-            epsg_code = ds.rio.crs.to_epsg()
+            epsg_code = ds.rio.crs.to_epsg() or 4326
             try:
                 proj_bbox = list(ds.rio.bounds())
             except Exception:
                 proj_bbox = None
-        epsg_code = epsg_code or 4326
+
         proj_info["proj:code"] = f"EPSG:{epsg_code}"
         if proj_bbox is not None:
             proj_info["proj:bbox"] = proj_bbox
