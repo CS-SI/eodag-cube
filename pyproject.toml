@@ -18,7 +18,7 @@ dependencies = [
     "xarray",
     "rioxarray",
     "h5netcdf",
-    "netcdf4 < 1.7.4",
+    "netcdf4",
     "cfgrib",
     "fsspec",
     "s3fs",
