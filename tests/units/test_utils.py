@@ -20,10 +20,13 @@ import unittest
 
 import fsspec.implementations
 import fsspec.implementations.http
+import numpy as np
 import responses
 import xarray as xr
 from fsspec.core import OpenFile
 
+from eodag_cube.types import XarrayDict
+from eodag_cube.utils import metadata
 from tests.context import (
     DatasetCreationError,
     fsspec_file_extension,
@@ -249,3 +252,176 @@ class TestXarray(unittest.TestCase):
             mock_open_rio.assert_called_once_with(
                 file.path, opener=mock_open, mask_and_scale=True, foo="bar", baz="qux"
             )
+
+
+class TestMetadataUtils(unittest.TestCase):
+    def setUp(self):
+        self.ds_1d = xr.Dataset(
+            {
+                "band_data": xr.DataArray(np.arange(4), dims=("band",)),  # reste data
+            },
+            coords={
+                "x": [0, 1, 2, 3],
+                "time": [0],
+                "latitude": ("band", np.linspace(-90, 90, 4)),
+                "longitude": ("band", np.linspace(-180, 180, 4)),
+            },
+        )
+
+        self.ds_2d = xr.Dataset(
+            {"band_data": xr.DataArray(np.ones((2, 2)), dims=("y", "x"))},
+            coords={"x": [0, 1], "y": [10, 11]},
+        )
+
+        self.xd_dict = {"ds1": self.ds_1d, "ds2": self.ds_2d}
+
+    def test_extract_projection_info_default(self):
+        """Test extract_projection_info returns correct default EPSG and shape"""
+        proj_info = metadata.extract_projection_info(self.ds_1d)
+        self.assertIn("proj:code", proj_info)
+        self.assertEqual(proj_info["proj:code"], "EPSG:4326")
+        self.assertIn("proj:shape", proj_info)
+        self.assertEqual(proj_info["proj:shape"], [4, 4, 1])
+        self.assertNotIn("proj:bbox", proj_info)
+
+    @mock.patch("builtins.hasattr", return_value=False)
+    def test_extract_projection_info_no_rio(self, mock_hasattr):
+        """Should work even if rio is not present"""
+        proj_info = metadata.extract_projection_info(self.ds_1d)
+        self.assertEqual(proj_info["proj:code"], "EPSG:4326")
+
+    def test_extract_projection_info_with_rio_and_bbox(self):
+        """Test extract_projection_info with rio and bounding box"""
+        ds = self.ds_1d
+
+        mock_crs = mock.Mock()
+        mock_crs.to_epsg.return_value = 3857
+
+        mock_rio = mock.Mock()
+        mock_rio.crs = mock_crs
+        mock_rio.bounds.return_value = (0.0, 1.0, 2.0, 3.0)
+
+        with mock.patch.object(xr.Dataset, "rio", new_callable=mock.PropertyMock) as mock_rio_prop:
+            mock_rio_prop.return_value = mock_rio
+
+            proj_info = metadata.extract_projection_info(ds)
+
+        self.assertEqual(proj_info["proj:code"], "EPSG:3857")
+        self.assertEqual(proj_info["proj:bbox"], [0.0, 1.0, 2.0, 3.0])
+
+    def test_extract_projection_info_rio_epsg_none(self):
+        """Test extract_projection_info with rio where EPSG code is None"""
+        ds = self.ds_1d
+
+        mock_crs = mock.Mock()
+        mock_crs.to_epsg.return_value = None
+
+        mock_rio = mock.Mock()
+        mock_rio.crs = mock_crs
+        mock_rio.bounds.return_value = (0, 0, 1, 1)
+
+        with mock.patch.object(xr.Dataset, "rio", new_callable=mock.PropertyMock) as mock_rio_prop:
+            mock_rio_prop.return_value = mock_rio
+
+            proj_info = metadata.extract_projection_info(ds)
+
+        self.assertEqual(proj_info["proj:code"], "EPSG:4326")
+
+    def test_extract_projection_info_rio_bounds_exception(self):
+        """Test extract_projection_info with rio where bounds raise an exception"""
+        ds = self.ds_1d
+
+        mock_crs = mock.Mock()
+        mock_crs.to_epsg.return_value = 4326
+
+        mock_rio = mock.Mock()
+        mock_rio.crs = mock_crs
+        mock_rio.bounds.side_effect = Exception("boom")
+
+        with mock.patch.object(xr.Dataset, "rio", new_callable=mock.PropertyMock) as mock_rio_prop:
+            mock_rio_prop.return_value = mock_rio
+
+            proj_info = metadata.extract_projection_info(ds)
+
+        self.assertEqual(proj_info["proj:code"], "EPSG:4326")
+        self.assertNotIn("proj:bbox", proj_info)
+
+    def test_build_cube_metadata(self):
+        """Test cube dimensions, variables and projection metadata"""
+
+        dims, vars_, proj_info = metadata.build_cube_metadata(self.xd_dict)
+
+        self.assertIn("x", dims)
+        self.assertIn("y", dims)
+        self.assertIn("time", dims)
+
+        self.assertEqual(dims["x"]["type"], "spatial")
+        self.assertEqual(dims["x"]["axis"], "x")
+
+        self.assertEqual(dims["y"]["type"], "spatial")
+        self.assertEqual(dims["y"]["axis"], "y")
+
+        self.assertEqual(dims["time"]["type"], "temporal")
+
+        if "extent" in dims["x"]:
+            self.assertEqual(len(dims["x"]["extent"]), 2)
+
+        if "step" in dims["x"]:
+            self.assertIsInstance(dims["x"]["step"], (int, float))
+
+        self.assertIn("band_data", vars_)
+        self.assertEqual(vars_["band_data"]["type"], "data")
+
+        self.assertIn("latitude", vars_)
+        self.assertIn("longitude", vars_)
+
+        self.assertEqual(vars_["latitude"]["type"], "auxiliary")
+        self.assertEqual(vars_["longitude"]["type"], "auxiliary")
+
+        self.assertEqual(vars_["latitude"]["description"], "Latitude")
+        self.assertEqual(vars_["longitude"]["description"], "Longitude")
+
+        self.assertIn("dimensions", vars_["latitude"])
+        self.assertIsInstance(vars_["latitude"]["dimensions"], list)
+
+        self.assertEqual(proj_info["proj:code"], "EPSG:4326")
+        self.assertIn("proj:shape", proj_info)
+        self.assertIsInstance(proj_info["proj:shape"], list)
+
+    def test_aux_variable_not_added_if_dimension(self):
+        """latitude/longitude must not be added as auxiliary if they are dimensions"""
+
+        ds = xr.Dataset(
+            data_vars={"band_data": (("latitude",), [1, 2, 3])},
+            coords={"latitude": [10, 20, 30]},
+        )
+
+        xd = XarrayDict({"test": ds})
+
+        dims, vars_, _ = metadata.build_cube_metadata(xd)
+
+        self.assertIn("latitude", dims)
+        self.assertNotIn("latitude", vars_)
+
+    def test_build_bands(self):
+        """Test bands generation"""
+        bands = metadata.build_bands({"ds": self.ds_1d})
+        self.assertEqual(len(bands), 4)
+        self.assertTrue(all("name" in b for b in bands))
+
+    def test_merge_bands(self):
+        """Test that existing bands are merged correctly with new bands"""
+        existing = [{"name": "B1"}, {"name": "B2"}]
+        new = [{"name": "B1"}, {"name": "B2"}, {"name": "B3"}]
+        merged = metadata.merge_bands(existing, new)
+        self.assertEqual(len(merged), 3)
+        self.assertEqual(merged[0]["name"], "B1")
+        self.assertEqual(merged[2]["name"], "B3")
+
+    def test_build_bands_no_band_dim(self):
+        """If no 'band' dimension, should fallback to number of data_vars"""
+        ds_simple = xr.Dataset({"a": (("x",), [1, 2]), "b": (("x",), [3, 4])})
+        bands = metadata.build_bands({"simple": ds_simple})
+        self.assertEqual(len(bands), 2)
+        self.assertEqual(bands[0]["name"], "band1")
+        self.assertEqual(bands[1]["name"], "band2")

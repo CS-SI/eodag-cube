@@ -26,7 +26,6 @@ from typing import Any, Iterable, Optional, Union, cast
 from urllib.parse import urlparse
 
 import fsspec
-import numpy as np
 import rasterio
 from boto3 import Session
 from boto3.resources.base import ServiceResource
@@ -43,11 +42,11 @@ from fsspec.core import OpenFile
 from requests import PreparedRequest
 from requests.auth import AuthBase
 from requests.structures import CaseInsensitiveDict
-from xarray import Dataset
 
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
+from eodag_cube.utils.metadata import build_bands, build_cube_metadata, merge_bands
 from eodag_cube.utils.xarray import try_open_dataset
 
 logger = logging.getLogger("eodag-cube.api.product")
@@ -351,164 +350,6 @@ class EOProduct(EOProduct_core):
 
             return xd
 
-    def _extract_projection_info(self, ds: Dataset) -> dict[str, Any]:
-        """
-        Extract projection information from an xarray.Dataset.
-
-        :param ds: xarray.Dataset to extract projection information from
-        :return: dictionary with projection information
-        """
-        proj_info: dict[str, Any] = {}
-
-        epsg_code = 4326
-        proj_bbox = None
-
-        if hasattr(ds, "rio") and ds.rio.crs is not None:
-            epsg_code = ds.rio.crs.to_epsg() or 4326
-            try:
-                proj_bbox = list(ds.rio.bounds())
-            except Exception:
-                proj_bbox = None
-
-        proj_info["proj:code"] = f"EPSG:{epsg_code}"
-        if proj_bbox is not None:
-            proj_info["proj:bbox"] = proj_bbox
-        proj_info["proj:shape"] = list(ds.sizes.values())
-        return proj_info
-
-    def _build_cube_metadata(self, ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
-        """
-        Build cube:dimensions and cube:variables from a dict of xarray.Dataset.
-
-        :param ds_dict: dictionary of xarray.Dataset
-        :return: tuple (dimensions_dict, variables_dict)
-        """
-        dimensions = {}
-        variables = {}
-        auxiliary_geo_vars = {
-            "latitude": "Latitude",
-            "longitude": "Longitude",
-        }
-
-        for ds in ds_dict.values():
-            proj_info: dict[str, Any] = self._extract_projection_info(ds)
-
-            # Dimensions
-            for dim_name in ds.sizes.keys():
-                dim_name_str = str(dim_name)
-
-                # Type
-                dim_type = (
-                    "spatial"
-                    if dim_name_str in ("x", "y", "lon", "lat")
-                    else "temporal"
-                    if dim_name_str == "time"
-                    else "other"
-                )
-
-                dim_entry: dict[str, Any] = {"type": dim_type}
-
-                if dim_type == "spatial":
-                    # Axis
-                    if dim_name_str in ("x", "lon"):
-                        dim_entry["axis"] = "x"
-                    elif dim_name_str in ("y", "lat"):
-                        dim_entry["axis"] = "y"
-                    elif dim_name_str == "z":
-                        dim_entry["axis"] = "z"
-
-                    dim_entry["reference_system"] = proj_info.get("proj:code", "EPSG:4326")
-
-                if dim_name_str in ds.coords:
-                    values = ds[dim_name_str].values
-                    if values.ndim == 1:
-                        if values.size <= 10:
-                            dim_entry["values"] = values.tolist()
-                        else:
-                            dim_entry["extent"] = (
-                                [float(values.min()), float(values.max())]
-                                if np.issubdtype(values.dtype, np.number)
-                                else [str(values.min()), str(values.max())]
-                            )
-                            diffs = np.diff(values)
-                            if np.allclose(diffs, diffs[0]):
-                                dim_entry["step"] = (
-                                    float(diffs[0]) if np.issubdtype(values.dtype, np.number) else str(diffs[0])
-                                )
-                    else:
-                        dim_entry["extent"] = [float(np.nanmin(values)), float(np.nanmax(values))]
-
-                dimensions[dim_name_str] = dim_entry
-
-            # Variables
-            for var_name, var in ds.data_vars.items():
-                variables[str(var_name)] = {
-                    "dimensions": list(var.dims),
-                    "type": "data",
-                    "data_type": str(var.dtype),
-                    "description": var.attrs.get("long_name", ""),
-                    "nodata": var.attrs.get("nodata", -9999),
-                }
-            for aux_name, desc in auxiliary_geo_vars.items():
-                if aux_name in ds:
-                    var = ds[aux_name]
-
-                    if aux_name in variables:
-                        continue
-                    if aux_name in ds.dims:
-                        continue
-
-                    variables[aux_name] = {
-                        "dimensions": list(var.dims),
-                        "type": "auxiliary",
-                        "description": desc,
-                        "data_type": str(var.dtype),
-                        "nodata": var.attrs.get("nodata", -9999),
-                    }
-
-        return dimensions, variables, proj_info
-
-    def _build_bands(self, xd: XarrayDict) -> list[dict]:
-        """
-        Build STAC bands metadata from xarray datasets.
-        If names are not available, use generic band names.
-        """
-        band_count = 0
-
-        for ds in xd.values():
-            for var in ds.data_vars.values():
-                for dim in var.dims:
-                    if str(dim).lower() in ("band", "bands"):
-                        band_count = ds.sizes[dim]
-                        break
-                if band_count:
-                    break
-
-            if band_count:
-                break
-
-        if band_count == 0:
-            band_count = len(next(iter(xd.values())).data_vars)
-
-        return [{"name": f"band{i + 1}"} for i in range(band_count)]
-
-    def _merge_bands(self, existing_bands: list[dict], new_bands: list[dict]) -> list[dict]:
-        """
-        Merge existing bands metadata with newly generated ones from xarray.
-        Existing bands metadata take precedence over generated ones.
-        """
-        merged = []
-
-        for i, band in enumerate(existing_bands):
-            band = dict(band)
-            band.setdefault("name", f"band{i + 1}")
-            merged.append(band)
-
-        for i in range(len(existing_bands), len(new_bands)):
-            merged.append(new_bands[i])
-
-        return merged
-
     def augment_from_xarray(self) -> EOProduct:
         """
         Annotate the product properties with dimensions and variables
@@ -521,10 +362,10 @@ class EOProduct(EOProduct_core):
             except Exception:
                 return self
 
-            dimensions, variables, proj_info = self._build_cube_metadata(xd)
+            dimensions, variables, proj_info = build_cube_metadata(xd)
             self.properties["cube:dimensions"] = dimensions
             self.properties["cube:variables"] = variables
-            self.properties["bands"] = self._build_bands(xd)
+            self.properties["bands"] = build_bands(xd)
             for key, value in proj_info.items():
                 self.properties[key] = value
 
@@ -535,7 +376,7 @@ class EOProduct(EOProduct_core):
                 except Exception:
                     continue
 
-                dimensions, variables, proj_info = self._build_cube_metadata(xd)
+                dimensions, variables, proj_info = build_cube_metadata(xd)
                 asset["cube:dimensions"] = dimensions
                 asset["cube:variables"] = variables
                 for key, value in proj_info.items():
@@ -544,9 +385,9 @@ class EOProduct(EOProduct_core):
                 has_band_data = any("band_data" in ds.data_vars for ds in xd.values())
 
                 if has_band_data:
-                    generated_bands = self._build_bands(xd)
+                    generated_bands = build_bands(xd)
                     if "bands" in asset:
-                        asset["bands"] = self._merge_bands(asset["bands"], generated_bands)
+                        asset["bands"] = merge_bands(asset["bands"], generated_bands)
                     else:
                         asset["bands"] = generated_bands
 
