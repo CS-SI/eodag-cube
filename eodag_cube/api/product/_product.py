@@ -43,6 +43,7 @@ from fsspec.core import OpenFile
 from requests import PreparedRequest
 from requests.auth import AuthBase
 from requests.structures import CaseInsensitiveDict
+from xarray import Dataset
 
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
@@ -350,7 +351,28 @@ class EOProduct(EOProduct_core):
 
             return xd
 
-    def _build_cube_metadata(self, ds_dict: XarrayDict) -> tuple[dict, dict]:
+    def _extract_projection_info(self, ds: Dataset) -> dict[str, Any]:
+        """
+        Extract projection information from an xarray.Dataset.
+
+        :param ds: xarray.Dataset to extract projection information from
+        :return: dictionary with projection information
+        """
+        proj_info: dict[str, Any] = {}
+        if hasattr(ds, "rio") and ds.rio.crs is not None:
+            epsg_code = ds.rio.crs.to_epsg()
+            try:
+                proj_bbox = list(ds.rio.bounds())
+            except Exception:
+                proj_bbox = None
+        epsg_code = epsg_code or 4326
+        proj_info["proj:code"] = f"EPSG:{epsg_code}"
+        if proj_bbox is not None:
+            proj_info["proj:bbox"] = proj_bbox
+        proj_info["proj:shape"] = list(ds.sizes.values())
+        return proj_info
+
+    def _build_cube_metadata(self, ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
         """
         Build cube:dimensions and cube:variables from a dict of xarray.Dataset.
 
@@ -359,18 +381,13 @@ class EOProduct(EOProduct_core):
         """
         dimensions = {}
         variables = {}
+        auxiliary_geo_vars = {
+            "latitude": "Latitude",
+            "longitude": "Longitude",
+        }
 
         for ds in ds_dict.values():
-            epsg_code = None
-            proj_bbox = None
-
-            if hasattr(ds, "rio") and ds.rio.crs is not None:
-                epsg_code = ds.rio.crs.to_epsg()
-                try:
-                    proj_bbox = list(ds.rio.bounds())
-                except Exception:
-                    proj_bbox = None
-            epsg_code = epsg_code or 4326
+            proj_info: dict[str, Any] = self._extract_projection_info(ds)
 
             # Dimensions
             for dim_name in ds.sizes.keys():
@@ -396,11 +413,7 @@ class EOProduct(EOProduct_core):
                     elif dim_name_str == "z":
                         dim_entry["axis"] = "z"
 
-                    dim_entry["reference_system"] = epsg_code
-                    dim_entry["proj:code"] = epsg_code
-
-                    if proj_bbox is not None:
-                        dim_entry["proj:bbox"] = proj_bbox
+                    dim_entry["reference_system"] = proj_info.get("proj:code", "EPSG:4326")
 
                 if dim_name_str in ds.coords:
                     values = ds[dim_name_str].values
@@ -425,9 +438,31 @@ class EOProduct(EOProduct_core):
 
             # Variables
             for var_name, var in ds.data_vars.items():
-                variables[str(var_name)] = {"dimensions": list(var.dims), "type": "data"}
+                variables[str(var_name)] = {
+                    "dimensions": list(var.dims),
+                    "type": "data",
+                    "data_type": str(var.dtype),
+                    "description": var.attrs.get("long_name", ""),
+                    "nodata": var.attrs.get("nodata", -9999),
+                }
+            for aux_name, desc in auxiliary_geo_vars.items():
+                if aux_name in ds:
+                    var = ds[aux_name]
 
-        return dimensions, variables
+                    if aux_name in variables:
+                        continue
+                    if aux_name in ds.dims:
+                        continue
+
+                    variables[aux_name] = {
+                        "dimensions": list(var.dims),
+                        "type": "auxiliary",
+                        "description": desc,
+                        "data_type": str(var.dtype),
+                        "nodata": var.attrs.get("nodata", -9999),
+                    }
+
+        return dimensions, variables, proj_info
 
     def _build_bands(self, xd: XarrayDict) -> list[dict]:
         """
@@ -482,10 +517,12 @@ class EOProduct(EOProduct_core):
             except Exception:
                 return self
 
-            dimensions, variables = self._build_cube_metadata(xd)
+            dimensions, variables, proj_info = self._build_cube_metadata(xd)
             self.properties["cube:dimensions"] = dimensions
             self.properties["cube:variables"] = variables
             self.properties["bands"] = self._build_bands(xd)
+            for key, value in proj_info.items():
+                self.properties[key] = value
 
         else:
             for asset_key, asset in self.assets.items():
@@ -494,14 +531,19 @@ class EOProduct(EOProduct_core):
                 except Exception:
                     continue
 
-                dimensions, variables = self._build_cube_metadata(xd)
+                dimensions, variables, proj_info = self._build_cube_metadata(xd)
                 asset["cube:dimensions"] = dimensions
                 asset["cube:variables"] = variables
+                for key, value in proj_info.items():
+                    asset[key] = value
 
-                generated_bands = self._build_bands(xd)
-                if "bands" in asset:
-                    asset["bands"] = self._merge_bands(asset["bands"], generated_bands)
-                else:
-                    asset["bands"] = generated_bands
+                has_band_data = any("band_data" in ds.data_vars for ds in xd.values())
+
+                if has_band_data:
+                    generated_bands = self._build_bands(xd)
+                    if "bands" in asset:
+                        asset["bands"] = self._merge_bands(asset["bands"], generated_bands)
+                    else:
+                        asset["bands"] = generated_bands
 
         return self
