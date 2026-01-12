@@ -1,7 +1,7 @@
 from typing import Any
 
 import numpy as np
-from xarray import Dataset
+from xarray import DataArray, Dataset
 
 from eodag_cube.types import XarrayDict
 
@@ -30,6 +30,23 @@ def extract_projection_info(ds: Dataset) -> dict[str, Any]:
         proj_info["proj:bbox"] = proj_bbox
     proj_info["proj:shape"] = list(ds.sizes.values())
     return proj_info
+
+
+def _get_nodata_value(var: DataArray) -> float | None:
+    """
+    Get nodata value from a variable's attributes or return a default value.
+
+    :param var: variable to get nodata value from
+    :return: nodata value
+    """
+    if "nodata" in var.attrs:
+        return var.attrs["nodata"]
+    elif "_FillValue" in var.encoding:
+        return var.encoding["_FillValue"]
+    elif "missing_value" in var.encoding:
+        return var.encoding["missing_value"]
+    else:
+        return None
 
 
 def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
@@ -103,8 +120,10 @@ def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
                 "type": "data",
                 "data_type": str(var.dtype),
                 "description": var.attrs.get("long_name", ""),
-                "nodata": var.attrs.get("nodata", -9999),
             }
+            if no_data := _get_nodata_value(var):
+                variables[str(var_name)]["nodata"] = no_data
+
         for aux_name, desc in auxiliary_geo_vars.items():
             if aux_name in ds:
                 var = ds[aux_name]

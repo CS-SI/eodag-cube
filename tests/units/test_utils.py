@@ -346,6 +346,34 @@ class TestMetadataUtils(unittest.TestCase):
         self.assertEqual(proj_info["proj:code"], "EPSG:4326")
         self.assertNotIn("proj:bbox", proj_info)
 
+    def test_get_nodata_value(self):
+        """Test _get_nodata_value function"""
+
+        var_with_nodata = xr.DataArray(
+            np.array([1, 2, 3]),
+            attrs={"nodata": -9999},
+        )
+        var_with_nodata.encoding = {}
+        self.assertEqual(metadata._get_nodata_value(var_with_nodata), -9999)
+
+        var_with_fillvalue = xr.DataArray(
+            np.array([1, 2, 3]),
+        )
+        var_with_fillvalue.encoding["_FillValue"] = -8888
+        self.assertEqual(metadata._get_nodata_value(var_with_fillvalue), -8888)
+
+        var_with_missing_value = xr.DataArray(
+            np.array([1, 2, 3]),
+        )
+        var_with_missing_value.encoding["missing_value"] = -7777
+        self.assertEqual(metadata._get_nodata_value(var_with_missing_value), -7777)
+
+        var_without_nodata = xr.DataArray(
+            np.array([1, 2, 3]),
+        )
+        var_without_nodata.encoding = {}
+        self.assertIsNone(metadata._get_nodata_value(var_without_nodata))
+
     def test_build_cube_metadata(self):
         """Test cube dimensions, variables and projection metadata"""
 
