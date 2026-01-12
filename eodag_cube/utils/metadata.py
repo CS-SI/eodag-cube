@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from xarray import DataArray, Dataset
@@ -32,7 +32,7 @@ def extract_projection_info(ds: Dataset) -> dict[str, Any]:
     return proj_info
 
 
-def _get_nodata_value(var: DataArray) -> float | None:
+def _get_nodata_value(var: DataArray) -> Optional[float]:
     """
     Get nodata value from a variable's attributes or return a default value.
 
