@@ -40,13 +40,55 @@ def _get_nodata_value(var: DataArray) -> Optional[float]:
     :return: nodata value
     """
     if "nodata" in var.attrs:
-        return var.attrs["nodata"]
+        return float(var.attrs["nodata"])
     elif "_FillValue" in var.encoding:
-        return var.encoding["_FillValue"]
+        return float(var.encoding["_FillValue"])
     elif "missing_value" in var.encoding:
-        return var.encoding["missing_value"]
+        return float(var.encoding["missing_value"])
     else:
         return None
+
+
+def set_variables(ds: Dataset) -> dict:
+    """
+    Build cube:variables from a dict of xarray.Dataset.
+    :return: variables_dict
+    """
+    variables = {}
+    auxiliary_geo_vars = {
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+    }
+    for var_name, var in ds.data_vars.items():
+        variables[str(var_name)] = {
+            "dimensions": list(var.dims),
+            "type": "data",
+            "data_type": str(var.dtype),
+        }
+        if desc := var.attrs.get("description"):
+            variables[str(var_name)]["description"] = desc
+        if no_data := _get_nodata_value(var):
+            variables[str(var_name)]["nodata"] = no_data
+
+    for aux_name, desc in auxiliary_geo_vars.items():
+        if aux_name in ds:
+            var = ds[aux_name]
+
+            if aux_name in variables:
+                continue
+            if aux_name in ds.dims:
+                continue
+
+            variables[aux_name] = {
+                "dimensions": list(var.dims),
+                "type": "auxiliary",
+                "description": desc,
+                "data_type": str(var.dtype),
+            }
+            if no_data := _get_nodata_value(var):
+                variables[aux_name]["nodata"] = no_data
+
+    return variables
 
 
 def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
@@ -58,10 +100,6 @@ def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
     """
     dimensions = {}
     variables = {}
-    auxiliary_geo_vars = {
-        "latitude": "Latitude",
-        "longitude": "Longitude",
-    }
 
     for ds in ds_dict.values():
         proj_info: dict[str, Any] = extract_projection_info(ds)
@@ -114,34 +152,8 @@ def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
             dimensions[dim_name_str] = dim_entry
 
         # Variables
-        for var_name, var in ds.data_vars.items():
-            variables[str(var_name)] = {
-                "dimensions": list(var.dims),
-                "type": "data",
-                "data_type": str(var.dtype),
-            }
-            if desc := var.attrs.get("description"):
-                variables[str(var_name)]["description"] = desc
-            if no_data := _get_nodata_value(var):
-                variables[str(var_name)]["nodata"] = no_data
-
-        for aux_name, desc in auxiliary_geo_vars.items():
-            if aux_name in ds:
-                var = ds[aux_name]
-
-                if aux_name in variables:
-                    continue
-                if aux_name in ds.dims:
-                    continue
-
-                variables[aux_name] = {
-                    "dimensions": list(var.dims),
-                    "type": "auxiliary",
-                    "description": desc,
-                    "data_type": str(var.dtype),
-                }
-                if no_data := _get_nodata_value(var):
-                    variables[aux_name]["nodata"] = no_data
+        var_ds = set_variables(ds)
+        variables.update(var_ds)
 
     return dimensions, variables, proj_info
 
