@@ -119,8 +119,9 @@ def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
                 "dimensions": list(var.dims),
                 "type": "data",
                 "data_type": str(var.dtype),
-                "description": var.attrs.get("long_name", ""),
             }
+            if desc := var.attrs.get("description"):
+                variables[str(var_name)]["description"] = desc
             if no_data := _get_nodata_value(var):
                 variables[str(var_name)]["nodata"] = no_data
 
