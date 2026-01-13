@@ -54,8 +54,8 @@ def set_variables(ds: Dataset) -> dict:
     Build cube:variables from a dict of xarray.Dataset.
     :return: variables_dict
     """
-    variables = {}
-    auxiliary_geo_vars = {
+    variables: dict[str, dict] = {}
+    auxiliary_geo_vars: dict[str, str] = {
         "latitude": "Latitude",
         "longitude": "Longitude",
     }
@@ -98,8 +98,8 @@ def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
     :param ds_dict: dictionary of xarray.Dataset
     :return: tuple (dimensions_dict, variables_dict)
     """
-    dimensions = {}
-    variables = {}
+    dimensions: dict[str, dict] = {}
+    variables: dict[str, dict] = {}
 
     for ds in ds_dict.values():
         proj_info: dict[str, Any] = extract_projection_info(ds)
