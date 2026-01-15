@@ -350,15 +350,20 @@ class EOProduct(EOProduct_core):
 
             return xd
 
-    def augment_from_xarray(self) -> EOProduct:
+    def augment_from_xarray(
+        self,
+        roles: Iterable[str] = {"data", "data-mask"},
+    ) -> EOProduct:
         """
         Annotate the product properties with dimensions and variables
         information from its xarray representation.
+
+        :param roles: (optional) roles of assets that must be fetched
         :returns: updated EOProduct
         """
         if not self.assets:
             try:
-                xd = self.to_xarray()
+                xd = self.to_xarray(roles=roles)
             except Exception:
                 return self
 
@@ -372,7 +377,7 @@ class EOProduct(EOProduct_core):
         else:
             for asset_key, asset in self.assets.items():
                 try:
-                    xd = self.to_xarray(asset_key=asset_key)
+                    xd = self.to_xarray(asset_key=asset_key, roles=roles)
                 except Exception:
                     continue
 

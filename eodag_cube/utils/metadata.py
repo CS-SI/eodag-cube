@@ -40,19 +40,30 @@ def _get_nodata_value(var: DataArray) -> Optional[float]:
     :return: nodata value
     """
     if "nodata" in var.attrs:
-        return float(var.attrs["nodata"])
+        value = var.attrs["nodata"]
+        return float(value) if value is not None else None
     elif "_FillValue" in var.encoding:
-        return float(var.encoding["_FillValue"])
+        value = var.encoding["_FillValue"]
+        return float(value) if value is not None else None
     elif "missing_value" in var.encoding:
-        return float(var.encoding["missing_value"])
+        value = var.encoding["missing_value"]
+        return float(value) if value is not None else None
+    elif hasattr(var, "rio"):
+        value = getattr(var.rio, "encoded_nodata", None)
+        if value is None:
+            value = getattr(var.rio, "nodata", None)
+
+        return float(value) if value is not None else None
     else:
         return None
 
 
 def set_variables(ds: Dataset) -> dict:
     """
-    Build cube:variables from a dict of xarray.Dataset.
-    :return: variables_dict
+    Set variables metadata from an xarray.Dataset.
+
+    :param ds: xarray.Dataset to extract variables metadata from
+    :return: dictionary with variables metadata
     """
     variables: dict[str, dict] = {}
     auxiliary_geo_vars: dict[str, str] = {

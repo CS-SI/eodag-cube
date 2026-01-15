@@ -269,8 +269,13 @@ class TestMetadataUtils(unittest.TestCase):
         )
 
         self.ds_2d = xr.Dataset(
-            {"band_data": xr.DataArray(np.ones((2, 2)), dims=("y", "x"))},
+            data_vars={
+                "band_data": xr.DataArray(
+                    np.ones((2, 2)), dims=("y", "x"), attrs={"description": "2D band data", "nodata": -9999.0}
+                )
+            },
             coords={"x": [0, 1], "y": [10, 11]},
+            attrs={"description": "Global dataset description"},
         )
 
         self.xd_dict = {"ds1": self.ds_1d, "ds2": self.ds_2d}
@@ -349,30 +354,59 @@ class TestMetadataUtils(unittest.TestCase):
     def test_get_nodata_value(self):
         """Test _get_nodata_value function"""
 
+        # variable with nodata attribute
         var_with_nodata = xr.DataArray(
             np.array([1, 2, 3]),
             attrs={"nodata": -9999},
         )
         var_with_nodata.encoding = {}
-        self.assertEqual(metadata._get_nodata_value(var_with_nodata), -9999)
+        self.assertEqual(metadata._get_nodata_value(var_with_nodata), -9999.0)
 
+        # variable with _FillValue encoding
         var_with_fillvalue = xr.DataArray(
             np.array([1, 2, 3]),
         )
         var_with_fillvalue.encoding["_FillValue"] = -8888
-        self.assertEqual(metadata._get_nodata_value(var_with_fillvalue), -8888)
+        self.assertEqual(metadata._get_nodata_value(var_with_fillvalue), -8888.0)
 
+        # variable with missing_value encoding
         var_with_missing_value = xr.DataArray(
             np.array([1, 2, 3]),
         )
         var_with_missing_value.encoding["missing_value"] = -7777
-        self.assertEqual(metadata._get_nodata_value(var_with_missing_value), -7777)
+        self.assertEqual(metadata._get_nodata_value(var_with_missing_value), -7777.0)
 
-        var_without_nodata = xr.DataArray(
-            np.array([1, 2, 3]),
-        )
-        var_without_nodata.encoding = {}
-        self.assertIsNone(metadata._get_nodata_value(var_without_nodata))
+        # variable with rio encoded_nodata
+        var_with_rio_enc = xr.DataArray(np.array([1, 2, 3]))
+        mock_rio_enc = mock.Mock()
+        mock_rio_enc.encoded_nodata = -6666
+        with mock.patch.object(xr.DataArray, "rio", new_callable=mock.PropertyMock, return_value=mock_rio_enc):
+            self.assertEqual(metadata._get_nodata_value(var_with_rio_enc), -6666.0)
+
+        # variable with rio nodata (when encoded_nodata is None)
+        var_with_rio_std = xr.DataArray(np.array([1, 2, 3]))
+        mock_rio_std = mock.Mock()
+        mock_rio_std.encoded_nodata = None
+        mock_rio_std.nodata = -5555
+        with mock.patch.object(xr.DataArray, "rio", new_callable=mock.PropertyMock, return_value=mock_rio_std):
+            self.assertEqual(metadata._get_nodata_value(var_with_rio_std), -5555.0)
+
+        # variable where rio exists but nodata is None
+        var_rio_none = xr.DataArray(np.array([1, 2, 3]))
+        mock_rio_none = mock.Mock()
+        mock_rio_none.encoded_nodata = None
+        mock_rio_none.nodata = None
+        with mock.patch.object(xr.DataArray, "rio", new_callable=mock.PropertyMock, return_value=mock_rio_none):
+            self.assertIsNone(metadata._get_nodata_value(var_rio_none))
+
+        # variable without any nodata information
+        class MockVar:
+            def __init__(self):
+                self.attrs = {}
+                self.encoding = {}
+
+        var_without_rio = MockVar()
+        self.assertIsNone(metadata._get_nodata_value(var_without_rio))
 
     def test_build_cube_metadata(self):
         """Test cube dimensions, variables and projection metadata"""

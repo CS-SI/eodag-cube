@@ -106,7 +106,7 @@ class TestEOProductAugmentFromXarray(EODagTestCase):
             "asset2": {},
         }
 
-        def side_effect(asset_key=None):
+        def side_effect(asset_key=None, **kwargs):
             if asset_key == "asset1":
                 raise Exception("boom")
             return XarrayDict({"data": self._make_dataset()})
