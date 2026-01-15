@@ -53,8 +53,8 @@ class TestEOProductAugmentFromXarray(EODagTestCase):
         """augment_from_xarray should populate metadata at asset level"""
         product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
         product.assets = {
-            "asset1": {},
-            "asset2": {},
+            "asset1": {"roles": ["data"]},
+            "asset2": {"roles": ["data-mask"]},
         }
 
         ds = self._make_dataset(with_band_data=True)
@@ -81,7 +81,7 @@ class TestEOProductAugmentFromXarray(EODagTestCase):
         """bands must NOT be added if band_data is absent"""
         product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
         product.assets = {
-            "asset1": {},
+            "asset1": {"roles": ["data"]},
         }
 
         ds = self._make_dataset(with_band_data=False)
@@ -102,8 +102,8 @@ class TestEOProductAugmentFromXarray(EODagTestCase):
         """If to_xarray fails for an asset, it should be skipped"""
         product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
         product.assets = {
-            "asset1": {},
-            "asset2": {},
+            "asset1": {"roles": ["data"]},
+            "asset2": {"roles": ["data-mask"]},
         }
 
         def side_effect(asset_key=None, **kwargs):
@@ -115,8 +115,46 @@ class TestEOProductAugmentFromXarray(EODagTestCase):
             product.augment_from_xarray()
 
         # asset1 untouched
-        self.assertEqual(product.assets["asset1"], {})
+        self.assertEqual(product.assets["asset1"], {"roles": ["data"]})
 
         # asset2 populated
         self.assertIn("cube:dimensions", product.assets["asset2"])
         self.assertIn("cube:variables", product.assets["asset2"])
+
+    def test_augment_from_xarray_skips_non_matching_roles(self):
+        """Assets with non-matching roles should be skipped (continue)"""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+
+        # Define assets: one matches, one does not
+        product.assets = {"matching_asset": {"roles": ["data"]}, "ignored_asset": {"roles": ["thumbnail"]}}
+
+        # Mock to_xarray to return a valid dataset
+        ds = self._make_dataset()
+        xd = XarrayDict({"data": ds})
+
+        with mock.patch.object(product, "to_xarray", return_value=xd) as mock_to_xarray:
+            # We only want to process "data"
+            product.augment_from_xarray(roles={"data"})
+
+        # The matching asset should be enriched
+        self.assertIn("cube:dimensions", product.assets["matching_asset"])
+
+        # The ignored asset should still be exactly as it was
+        self.assertEqual(product.assets["ignored_asset"], {"roles": ["thumbnail"]})
+        self.assertNotIn("cube:dimensions", product.assets["ignored_asset"])
+
+        # Verify that to_xarray was only called once (for the matching asset)
+        self.assertEqual(mock_to_xarray.call_count, 1)
+
+    def test_augment_from_xarray_skips_when_no_roles_exist(self):
+        """If no assets have roles defined, they should be skipped according to current logic"""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.assets = {"asset_without_role": {}}  # No "roles" key here
+
+        with mock.patch.object(product, "to_xarray") as mock_to_xarray:
+            product.augment_from_xarray(roles={"data"})
+
+        # to_xarray should NEVER be called because roles_exist is False
+        # and the logic triggers 'continue'
+        mock_to_xarray.assert_not_called()
+        self.assertEqual(product.assets["asset_without_role"], {})

@@ -375,8 +375,19 @@ class EOProduct(EOProduct_core):
                 self.properties[key] = value
 
         else:
+            # have roles been set in assets ?
+            roles_exist = any("roles" in a for a in self.assets.values())
             for asset_key, asset in self.assets.items():
                 try:
+                    asset_roles = asset.get("roles", [])
+                    if (
+                        roles
+                        and asset_roles
+                        and not any(r in asset_roles for r in roles)
+                        or not roles
+                        or not roles_exist
+                    ):
+                        continue
                     xd = self.to_xarray(asset_key=asset_key, roles=roles)
                 except Exception:
                     continue
