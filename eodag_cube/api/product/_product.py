@@ -355,8 +355,7 @@ class EOProduct(EOProduct_core):
         roles: Iterable[str] = {"data", "data-mask"},
     ) -> EOProduct:
         """
-        Annotate the product properties with dimensions and variables
-        information from its xarray representation.
+        Annotate the product properties and assets with STAC metadata got by fetching its xarray representation.
 
         :param roles: (optional) roles of assets that must be fetched
         :returns: updated EOProduct

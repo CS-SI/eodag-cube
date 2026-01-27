@@ -28,9 +28,9 @@ from eodag_cube.types import XarrayDict
 
 def extract_projection_info(ds: Dataset) -> dict[str, Any]:
     """
-    Extract projection information from an xarray.Dataset.
+    Extract projection information from a :class:`xarray.Dataset`.
 
-    :param ds: xarray.Dataset to extract projection information from
+    :param ds: :class:`xarray.Dataset` to extract projection information from
     :return: dictionary with projection information
     """
     proj_info: dict[str, Any] = {}
@@ -83,11 +83,11 @@ def _get_nodata_value(var: DataArray) -> Union[float, str, None]:
     return value
 
 
-def set_variables(ds: Dataset) -> dict:
+def set_variables(ds: Dataset) -> dict[str, Any]:
     """
-    Set variables metadata from an xarray.Dataset.
+    Set variables metadata from a :class:`xarray.Dataset`.
 
-    :param ds: xarray.Dataset to extract variables metadata from
+    :param ds: :class:`xarray.Dataset` to extract variables metadata from
     :return: dictionary with variables metadata
     """
     variables: dict[str, dict] = {}
@@ -127,10 +127,10 @@ def set_variables(ds: Dataset) -> dict:
 
 def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
     """
-    Build cube:dimensions and cube:variables from a dict of xarray.Dataset.
+    Build datacube and projection metadata from a dict of :class:`xarray.Dataset`.
 
-    :param ds_dict: dictionary of xarray.Dataset
-    :return: tuple (dimensions_dict, variables_dict)
+    :param ds_dict: input xarray dict
+    :return: tuple of 3 dicts for cube dimensions, cube variables and projection info
     """
     dimensions: dict[str, dict] = {}
     variables: dict[str, dict] = {}
@@ -199,7 +199,11 @@ def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
 def build_bands(xd: XarrayDict) -> list[dict]:
     """
     Build STAC bands metadata from xarray datasets.
+
     If names are not available, use generic band names.
+
+    :param xd: input xarray dict
+    :return: list of bands metadata
     """
     band_count = 0
 
@@ -224,7 +228,12 @@ def build_bands(xd: XarrayDict) -> list[dict]:
 def merge_bands(existing_bands: list[dict], new_bands: list[dict]) -> list[dict]:
     """
     Merge existing bands metadata with newly generated ones from xarray.
+
     Existing bands metadata take precedence over generated ones.
+
+    :param existing_bands: existing bands metadata
+    :param new_bands: newly generated bands metadata
+    :return: merged bands metadata
     """
     merged = []
 
