@@ -46,6 +46,7 @@ from requests.structures import CaseInsensitiveDict
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
+from eodag_cube.utils.metadata import build_bands, build_cube_metadata, merge_bands
 from eodag_cube.utils.xarray import try_open_dataset
 
 logger = logging.getLogger("eodag-cube.api.product")
@@ -348,3 +349,61 @@ class EOProduct(EOProduct_core):
             xd.sort()
 
             return xd
+
+    def augment_from_xarray(
+        self,
+        roles: Iterable[str] = {"data", "data-mask"},
+    ) -> EOProduct:
+        """
+        Annotate the product properties and assets with STAC metadata got by fetching its xarray representation.
+
+        :param roles: (optional) roles of assets that must be fetched
+        :returns: updated EOProduct
+        """
+        if not self.assets:
+            try:
+                xd = self.to_xarray(roles=roles)
+            except Exception:
+                return self
+
+            dimensions, variables, proj_info = build_cube_metadata(xd)
+            self.properties["cube:dimensions"] = dimensions
+            self.properties["cube:variables"] = variables
+            self.properties["bands"] = build_bands(xd)
+            for key, value in proj_info.items():
+                self.properties[key] = value
+
+        else:
+            # have roles been set in assets ?
+            roles_exist = any("roles" in a for a in self.assets.values())
+            for asset_key, asset in self.assets.items():
+                try:
+                    asset_roles = asset.get("roles", [])
+                    if (
+                        roles
+                        and asset_roles
+                        and not any(r in asset_roles for r in roles)
+                        or not roles
+                        or not roles_exist
+                    ):
+                        continue
+                    xd = self.to_xarray(asset_key=asset_key, roles=roles)
+                except Exception:
+                    continue
+
+                dimensions, variables, proj_info = build_cube_metadata(xd)
+                asset["cube:dimensions"] = dimensions
+                asset["cube:variables"] = variables
+                for key, value in proj_info.items():
+                    asset[key] = value
+
+                has_band_data = any("band_data" in ds.data_vars for ds in xd.values())
+
+                if has_band_data:
+                    generated_bands = build_bands(xd)
+                    if "bands" in asset:
+                        asset["bands"] = merge_bands(asset["bands"], generated_bands)
+                    else:
+                        asset["bands"] = generated_bands
+
+        return self
