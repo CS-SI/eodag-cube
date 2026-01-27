@@ -362,6 +362,14 @@ class TestMetadataUtils(unittest.TestCase):
         var_with_nodata.encoding = {}
         self.assertEqual(metadata._get_nodata_value(var_with_nodata), -9999.0)
 
+        # variable with nodata nan attribute
+        var_with_nodata = xr.DataArray(
+            np.array([1, 2, 3]),
+            attrs={"nodata": float("NaN")},
+        )
+        var_with_nodata.encoding = {}
+        self.assertEqual(metadata._get_nodata_value(var_with_nodata), "nan")
+
         # variable with _FillValue encoding
         var_with_fillvalue = xr.DataArray(
             np.array([1, 2, 3]),

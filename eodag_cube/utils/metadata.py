@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from math import isnan
+from typing import Any, Union
 
 import numpy as np
 from xarray import DataArray, Dataset
@@ -32,7 +33,7 @@ def extract_projection_info(ds: Dataset) -> dict[str, Any]:
     return proj_info
 
 
-def _get_nodata_value(var: DataArray) -> Optional[float]:
+def _get_nodata_value(var: DataArray) -> Union[float, str, None]:
     """
     Get nodata value from a variable's attributes or return a default value.
 
@@ -41,21 +42,26 @@ def _get_nodata_value(var: DataArray) -> Optional[float]:
     """
     if "nodata" in var.attrs:
         value = var.attrs["nodata"]
-        return float(value) if value is not None else None
     elif "_FillValue" in var.encoding:
         value = var.encoding["_FillValue"]
-        return float(value) if value is not None else None
     elif "missing_value" in var.encoding:
         value = var.encoding["missing_value"]
-        return float(value) if value is not None else None
     elif hasattr(var, "rio"):
         value = getattr(var.rio, "encoded_nodata", None)
         if value is None:
             value = getattr(var.rio, "nodata", None)
-
-        return float(value) if value is not None else None
     else:
         return None
+
+    if value is None:
+        return None
+
+    # handle NaN
+    value = float(value)
+    if isnan(value):
+        return str(value)
+
+    return value
 
 
 def set_variables(ds: Dataset) -> dict:
@@ -78,8 +84,7 @@ def set_variables(ds: Dataset) -> dict:
         }
         if desc := var.attrs.get("description"):
             variables[str(var_name)]["description"] = desc
-        if no_data := _get_nodata_value(var):
-            variables[str(var_name)]["nodata"] = no_data
+        variables[str(var_name)]["nodata"] = _get_nodata_value(var)
 
     for aux_name, desc in auxiliary_geo_vars.items():
         if aux_name in ds:
@@ -96,8 +101,7 @@ def set_variables(ds: Dataset) -> dict:
                 "description": desc,
                 "data_type": str(var.dtype),
             }
-            if no_data := _get_nodata_value(var):
-                variables[aux_name]["nodata"] = no_data
+            variables[aux_name]["nodata"] = _get_nodata_value(var)
 
     return variables
 
