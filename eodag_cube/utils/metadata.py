@@ -139,7 +139,11 @@ def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
                 elif dim_name_str == "z":
                     dim_entry["axis"] = "z"
 
-                dim_entry["reference_system"] = proj_info.get("proj:code", "EPSG:4326")
+                proj_code = proj_info.get("proj:code", "EPSG:4326")
+                try:
+                    dim_entry["reference_system"] = int(proj_code.split(":")[-1])
+                except ValueError:
+                    pass
 
             if dim_name_str in ds.coords:
                 values = ds[dim_name_str].values
