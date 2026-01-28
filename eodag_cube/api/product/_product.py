@@ -363,10 +363,12 @@ class EOProduct(EOProduct_core):
         if not self.assets:
             try:
                 xd = self.to_xarray(roles=roles)
+                # single ds in XarrayDict
+                ds = next(iter(xd.values()))
             except Exception:
                 return self
 
-            dimensions, variables, proj_info = build_cube_metadata(xd)
+            dimensions, variables, proj_info = build_cube_metadata(ds)
             self.properties["cube:dimensions"] = dimensions
             self.properties["cube:variables"] = variables
             self.properties["bands"] = build_bands(xd)
@@ -391,7 +393,9 @@ class EOProduct(EOProduct_core):
                 except Exception:
                     continue
 
-                dimensions, variables, proj_info = build_cube_metadata(xd)
+                # single ds in XarrayDict
+                ds = next(iter(xd.values()))
+                dimensions, variables, proj_info = build_cube_metadata(ds)
                 asset["cube:dimensions"] = dimensions
                 asset["cube:variables"] = variables
                 for key, value in proj_info.items():
