@@ -46,7 +46,7 @@ from requests.structures import CaseInsensitiveDict
 from eodag_cube.api.product._assets import AssetsDict
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
-from eodag_cube.utils.metadata import build_bands, build_cube_metadata, merge_bands
+from eodag_cube.utils.metadata import build_bands, build_stac_metadata, merge_bands
 from eodag_cube.utils.xarray import try_open_dataset
 
 logger = logging.getLogger("eodag-cube.api.product")
@@ -368,12 +368,9 @@ class EOProduct(EOProduct_core):
             except Exception:
                 return self
 
-            dimensions, variables, proj_info = build_cube_metadata(ds)
-            self.properties["cube:dimensions"] = dimensions
-            self.properties["cube:variables"] = variables
+            # update product properties
+            self.properties |= build_stac_metadata(ds)
             self.properties["bands"] = build_bands(xd)
-            for key, value in proj_info.items():
-                self.properties[key] = value
 
         else:
             # have roles been set in assets ?
@@ -395,11 +392,8 @@ class EOProduct(EOProduct_core):
 
                 # single ds in XarrayDict
                 ds = next(iter(xd.values()))
-                dimensions, variables, proj_info = build_cube_metadata(ds)
-                asset["cube:dimensions"] = dimensions
-                asset["cube:variables"] = variables
-                for key, value in proj_info.items():
-                    asset[key] = value
+                # update asset metadata
+                asset |= build_stac_metadata(ds)
 
                 has_band_data = any("band_data" in ds.data_vars for ds in xd.values())
 

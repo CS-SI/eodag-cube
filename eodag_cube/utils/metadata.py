@@ -126,12 +126,12 @@ def set_variables(ds: Dataset) -> dict[str, Any]:
     return variables
 
 
-def build_cube_metadata(ds: Dataset) -> tuple[dict, dict, dict]:
+def build_stac_metadata(ds: Dataset) -> dict[str, Any]:
     """
-    Build datacube and projection metadata from given :class:`xarray.Dataset`.
+    Read STAC metadata from an xarray dataset.
 
     :param ds: input xarray dataset
-    :return: tuple of 3 dicts for cube dimensions, cube variables and projection info
+    :return: STAC metadata dictionary
     """
     dimensions: dict[str, dict] = {}
     variables: dict[str, dict] = {}
@@ -187,7 +187,7 @@ def build_cube_metadata(ds: Dataset) -> tuple[dict, dict, dict]:
     var_ds = set_variables(ds)
     variables.update(var_ds)
 
-    return dimensions, variables, proj_info
+    return {"cube:dimensions": dimensions, "cube:variables": variables, **proj_info}
 
 
 def build_bands(xd: XarrayDict) -> list[dict]:
