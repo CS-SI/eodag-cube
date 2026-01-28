@@ -23,8 +23,6 @@ from typing import Any, Union
 import numpy as np
 from xarray import DataArray, Dataset
 
-from eodag_cube.types import XarrayDict
-
 
 def extract_projection_info(ds: Dataset) -> dict[str, Any]:
     """
@@ -126,102 +124,91 @@ def set_variables(ds: Dataset) -> dict[str, Any]:
     return variables
 
 
-def build_cube_metadata(ds_dict: XarrayDict) -> tuple[dict, dict, dict]:
+def build_stac_metadata(ds: Dataset) -> dict[str, Any]:
     """
-    Build datacube and projection metadata from a dict of :class:`xarray.Dataset`.
+    Read STAC metadata from an xarray dataset.
 
-    :param ds_dict: input xarray dict
-    :return: tuple of 3 dicts for cube dimensions, cube variables and projection info
+    :param ds: input xarray dataset
+    :return: STAC metadata dictionary
     """
     dimensions: dict[str, dict] = {}
     variables: dict[str, dict] = {}
 
-    for ds in ds_dict.values():
-        proj_info: dict[str, Any] = extract_projection_info(ds)
+    proj_info: dict[str, Any] = extract_projection_info(ds)
 
-        # Dimensions
-        for dim_name in ds.sizes.keys():
-            dim_name_str = str(dim_name)
+    # Dimensions
+    for dim_name in ds.sizes.keys():
+        dim_name_str = str(dim_name)
 
-            # Type
-            dim_type = (
-                "spatial"
-                if dim_name_str in ("x", "y", "lon", "lat")
-                else "temporal"
-                if dim_name_str == "time"
-                else "other"
-            )
+        # Type
+        dim_type = (
+            "spatial" if dim_name_str in ("x", "y", "lon", "lat") else "temporal" if dim_name_str == "time" else "other"
+        )
 
-            dim_entry: dict[str, Any] = {"type": dim_type}
+        dim_entry: dict[str, Any] = {"type": dim_type}
 
-            if dim_type == "spatial":
-                # Axis
-                if dim_name_str in ("x", "lon"):
-                    dim_entry["axis"] = "x"
-                elif dim_name_str in ("y", "lat"):
-                    dim_entry["axis"] = "y"
-                elif dim_name_str == "z":
-                    dim_entry["axis"] = "z"
+        if dim_type == "spatial":
+            # Axis
+            if dim_name_str in ("x", "lon"):
+                dim_entry["axis"] = "x"
+            elif dim_name_str in ("y", "lat"):
+                dim_entry["axis"] = "y"
+            elif dim_name_str == "z":
+                dim_entry["axis"] = "z"
 
-                proj_code = proj_info.get("proj:code", "EPSG:4326")
-                try:
-                    dim_entry["reference_system"] = int(proj_code.split(":")[-1])
-                except ValueError:
-                    pass
+            proj_code = proj_info.get("proj:code", "EPSG:4326")
+            try:
+                dim_entry["reference_system"] = int(proj_code.split(":")[-1])
+            except ValueError:
+                pass
 
-            if dim_name_str in ds.coords:
-                values = ds[dim_name_str].values
-                if values.ndim == 1:
-                    if values.size <= 10:
-                        dim_entry["values"] = values.tolist()
-                    else:
-                        dim_entry["extent"] = (
-                            [float(values.min()), float(values.max())]
-                            if np.issubdtype(values.dtype, np.number)
-                            else [str(values.min()), str(values.max())]
-                        )
-                        diffs = np.diff(values)
-                        if np.allclose(diffs, diffs[0]):
-                            dim_entry["step"] = (
-                                float(diffs[0]) if np.issubdtype(values.dtype, np.number) else str(diffs[0])
-                            )
+        if dim_name_str in ds.coords:
+            values = ds[dim_name_str].values
+            if values.ndim == 1:
+                if values.size <= 10:
+                    dim_entry["values"] = values.tolist()
                 else:
-                    dim_entry["extent"] = [float(np.nanmin(values)), float(np.nanmax(values))]
+                    dim_entry["extent"] = (
+                        [float(values.min()), float(values.max())]
+                        if np.issubdtype(values.dtype, np.number)
+                        else [str(values.min()), str(values.max())]
+                    )
+                    diffs = np.diff(values)
+                    if np.allclose(diffs, diffs[0]):
+                        dim_entry["step"] = float(diffs[0]) if np.issubdtype(values.dtype, np.number) else str(diffs[0])
+            else:
+                dim_entry["extent"] = [float(np.nanmin(values)), float(np.nanmax(values))]
 
-            dimensions[dim_name_str] = dim_entry
+        dimensions[dim_name_str] = dim_entry
 
-        # Variables
-        var_ds = set_variables(ds)
-        variables.update(var_ds)
+    # Variables
+    var_ds = set_variables(ds)
+    variables.update(var_ds)
 
-    return dimensions, variables, proj_info
+    return {"cube:dimensions": dimensions, "cube:variables": variables, **proj_info}
 
 
-def build_bands(xd: XarrayDict) -> list[dict]:
+def build_bands(ds: Dataset) -> list[dict]:
     """
-    Build STAC bands metadata from xarray datasets.
+    Build STAC bands metadata from xarray dataset.
 
     If names are not available, use generic band names.
 
-    :param xd: input xarray dict
+    :param ds: input xarray dataset
     :return: list of bands metadata
     """
     band_count = 0
 
-    for ds in xd.values():
-        for var in ds.data_vars.values():
-            for dim in var.dims:
-                if str(dim).lower() in ("band", "bands"):
-                    band_count = ds.sizes[dim]
-                    break
-            if band_count:
+    for var in ds.data_vars.values():
+        for dim in var.dims:
+            if str(dim).lower() in ("band", "bands"):
+                band_count = ds.sizes[dim]
                 break
-
         if band_count:
             break
 
     if band_count == 0:
-        band_count = len(next(iter(xd.values())).data_vars)
+        band_count = len(ds.data_vars)
 
     return [{"name": f"band{i + 1}"} for i in range(band_count)]
 

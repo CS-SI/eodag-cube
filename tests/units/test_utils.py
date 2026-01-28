@@ -25,7 +25,6 @@ import responses
 import xarray as xr
 from fsspec.core import OpenFile
 
-from eodag_cube.types import XarrayDict
 from eodag_cube.utils import metadata
 from tests.context import (
     DatasetCreationError,
@@ -415,47 +414,66 @@ class TestMetadataUtils(unittest.TestCase):
         var_without_rio = MockVar()
         self.assertIsNone(metadata._get_nodata_value(var_without_rio))
 
-    def test_build_cube_metadata(self):
+    def test_build_stac_metadata_1d(self):
         """Test cube dimensions, variables and projection metadata"""
 
-        dims, vars_, proj_info = metadata.build_cube_metadata(self.xd_dict)
+        stac_mtd = metadata.build_stac_metadata(self.ds_1d)
 
-        self.assertIn("x", dims)
-        self.assertIn("y", dims)
-        self.assertIn("time", dims)
+        self.assertIn("x", stac_mtd["cube:dimensions"])
+        self.assertIn("time", stac_mtd["cube:dimensions"])
 
-        self.assertEqual(dims["x"]["type"], "spatial")
-        self.assertEqual(dims["x"]["axis"], "x")
+        self.assertEqual(stac_mtd["cube:dimensions"]["x"]["type"], "spatial")
+        self.assertEqual(stac_mtd["cube:dimensions"]["x"]["axis"], "x")
 
-        self.assertEqual(dims["y"]["type"], "spatial")
-        self.assertEqual(dims["y"]["axis"], "y")
+        self.assertEqual(stac_mtd["cube:dimensions"]["time"]["type"], "temporal")
 
-        self.assertEqual(dims["time"]["type"], "temporal")
+        if "extent" in stac_mtd["cube:dimensions"]["x"]:
+            self.assertEqual(len(stac_mtd["cube:dimensions"]["x"]["extent"]), 2)
 
-        if "extent" in dims["x"]:
-            self.assertEqual(len(dims["x"]["extent"]), 2)
+        if "step" in stac_mtd["cube:dimensions"]["x"]:
+            self.assertIsInstance(stac_mtd["cube:dimensions"]["x"]["step"], (int, float))
+        self.assertIn("band_data", stac_mtd["cube:variables"])
+        self.assertEqual(stac_mtd["cube:variables"]["band_data"]["type"], "data")
 
-        if "step" in dims["x"]:
-            self.assertIsInstance(dims["x"]["step"], (int, float))
+        self.assertIn("latitude", stac_mtd["cube:variables"])
+        self.assertIn("longitude", stac_mtd["cube:variables"])
 
-        self.assertIn("band_data", vars_)
-        self.assertEqual(vars_["band_data"]["type"], "data")
+        self.assertEqual(stac_mtd["cube:variables"]["latitude"]["type"], "auxiliary")
+        self.assertEqual(stac_mtd["cube:variables"]["longitude"]["type"], "auxiliary")
 
-        self.assertIn("latitude", vars_)
-        self.assertIn("longitude", vars_)
+        self.assertEqual(stac_mtd["cube:variables"]["latitude"]["description"], "Latitude")
+        self.assertEqual(stac_mtd["cube:variables"]["longitude"]["description"], "Longitude")
 
-        self.assertEqual(vars_["latitude"]["type"], "auxiliary")
-        self.assertEqual(vars_["longitude"]["type"], "auxiliary")
+        self.assertIn("dimensions", stac_mtd["cube:variables"]["latitude"])
+        self.assertIsInstance(stac_mtd["cube:variables"]["latitude"]["dimensions"], list)
+        self.assertEqual(stac_mtd["proj:code"], "EPSG:4326")
+        self.assertNotIn("proj:shape", stac_mtd)
 
-        self.assertEqual(vars_["latitude"]["description"], "Latitude")
-        self.assertEqual(vars_["longitude"]["description"], "Longitude")
+    def test_build_stac_metadata_2d(self):
+        """Test cube dimensions, variables and projection metadata"""
 
-        self.assertIn("dimensions", vars_["latitude"])
-        self.assertIsInstance(vars_["latitude"]["dimensions"], list)
+        stac_mtd = metadata.build_stac_metadata(self.ds_2d)
 
-        self.assertEqual(proj_info["proj:code"], "EPSG:4326")
-        self.assertIn("proj:shape", proj_info)
-        self.assertEqual(proj_info["proj:shape"], [2, 2])
+        self.assertIn("x", stac_mtd["cube:dimensions"])
+        self.assertIn("y", stac_mtd["cube:dimensions"])
+
+        self.assertEqual(stac_mtd["cube:dimensions"]["x"]["type"], "spatial")
+        self.assertEqual(stac_mtd["cube:dimensions"]["x"]["axis"], "x")
+
+        self.assertEqual(stac_mtd["cube:dimensions"]["y"]["type"], "spatial")
+        self.assertEqual(stac_mtd["cube:dimensions"]["y"]["axis"], "y")
+
+        if "extent" in stac_mtd["cube:dimensions"]["x"]:
+            self.assertEqual(len(stac_mtd["cube:dimensions"]["x"]["extent"]), 2)
+
+        if "step" in stac_mtd["cube:dimensions"]["x"]:
+            self.assertIsInstance(stac_mtd["cube:dimensions"]["x"]["step"], (int, float))
+        self.assertIn("band_data", stac_mtd["cube:variables"])
+        self.assertEqual(stac_mtd["cube:variables"]["band_data"]["type"], "data")
+
+        self.assertEqual(stac_mtd["proj:code"], "EPSG:4326")
+        self.assertIn("proj:shape", stac_mtd)
+        self.assertEqual(stac_mtd["proj:shape"], [2, 2])
 
     def test_aux_variable_not_added_if_dimension(self):
         """latitude/longitude must not be added as auxiliary if they are dimensions"""
@@ -465,16 +483,14 @@ class TestMetadataUtils(unittest.TestCase):
             coords={"latitude": [10, 20, 30]},
         )
 
-        xd = XarrayDict({"test": ds})
+        stac_mtd = metadata.build_stac_metadata(ds)
 
-        dims, vars_, _ = metadata.build_cube_metadata(xd)
-
-        self.assertIn("latitude", dims)
-        self.assertNotIn("latitude", vars_)
+        self.assertIn("latitude", stac_mtd["cube:dimensions"])
+        self.assertNotIn("latitude", stac_mtd["cube:variables"])
 
     def test_build_bands(self):
         """Test bands generation"""
-        bands = metadata.build_bands({"ds": self.ds_1d})
+        bands = metadata.build_bands(self.ds_1d)
         self.assertEqual(len(bands), 4)
         self.assertTrue(all("name" in b for b in bands))
 
@@ -490,7 +506,7 @@ class TestMetadataUtils(unittest.TestCase):
     def test_build_bands_no_band_dim(self):
         """If no 'band' dimension, should fallback to number of data_vars"""
         ds_simple = xr.Dataset({"a": (("x",), [1, 2]), "b": (("x",), [3, 4])})
-        bands = metadata.build_bands({"simple": ds_simple})
+        bands = metadata.build_bands(ds_simple)
         self.assertEqual(len(bands), 2)
         self.assertEqual(bands[0]["name"], "band1")
         self.assertEqual(bands[1]["name"], "band2")
