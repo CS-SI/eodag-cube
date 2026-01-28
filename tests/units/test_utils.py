@@ -285,8 +285,7 @@ class TestMetadataUtils(unittest.TestCase):
         proj_info = metadata.extract_projection_info(self.ds_1d)
         self.assertIn("proj:code", proj_info)
         self.assertEqual(proj_info["proj:code"], "EPSG:4326")
-        self.assertIn("proj:shape", proj_info)
-        self.assertEqual(proj_info["proj:shape"], [4, 4, 1])
+        self.assertNotIn("proj:shape", proj_info)
         self.assertNotIn("proj:bbox", proj_info)
 
     @mock.patch("builtins.hasattr", return_value=False)
@@ -456,7 +455,7 @@ class TestMetadataUtils(unittest.TestCase):
 
         self.assertEqual(proj_info["proj:code"], "EPSG:4326")
         self.assertIn("proj:shape", proj_info)
-        self.assertIsInstance(proj_info["proj:shape"], list)
+        self.assertEqual(proj_info["proj:shape"], [2, 2])
 
     def test_aux_variable_not_added_if_dimension(self):
         """latitude/longitude must not be added as auxiliary if they are dimensions"""

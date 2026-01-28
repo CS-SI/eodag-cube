@@ -114,8 +114,8 @@ class TestEOProductAugmentFromXarray(EODagTestCase):
         with mock.patch.object(product, "to_xarray", side_effect=side_effect):
             product.augment_from_xarray()
 
-        # asset1 untouched
-        self.assertEqual(product.assets["asset1"], {"roles": ["data"]})
+        # asset1 with only empty dimensions
+        self.assertDictEqual(product.assets["asset1"], {"roles": ["data"], "cube:dimensions": {}})
 
         # asset2 populated
         self.assertIn("cube:dimensions", product.assets["asset2"])
@@ -140,8 +140,7 @@ class TestEOProductAugmentFromXarray(EODagTestCase):
         self.assertIn("cube:dimensions", product.assets["matching_asset"])
 
         # The ignored asset should still be exactly as it was
-        self.assertEqual(product.assets["ignored_asset"], {"roles": ["thumbnail"]})
-        self.assertNotIn("cube:dimensions", product.assets["ignored_asset"])
+        self.assertDictEqual(product.assets["ignored_asset"], {"roles": ["thumbnail"], "cube:dimensions": {}})
 
         # Verify that to_xarray was only called once (for the matching asset)
         self.assertEqual(mock_to_xarray.call_count, 1)

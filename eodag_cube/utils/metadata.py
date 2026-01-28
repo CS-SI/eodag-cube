@@ -48,7 +48,8 @@ def extract_projection_info(ds: Dataset) -> dict[str, Any]:
     proj_info["proj:code"] = f"EPSG:{epsg_code}"
     if proj_bbox is not None:
         proj_info["proj:bbox"] = proj_bbox
-    proj_info["proj:shape"] = list(ds.sizes.values())
+    if "x" in ds.sizes and "y" in ds.sizes:
+        proj_info["proj:shape"] = [ds.sizes["y"], ds.sizes["x"]]
     return proj_info
 
 
