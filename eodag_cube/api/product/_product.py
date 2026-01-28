@@ -406,4 +406,7 @@ class EOProduct(EOProduct_core):
                     else:
                         asset["bands"] = generated_bands
 
+            if any("cube:dimensions" in a for a in self.assets.values()):
+                for key in self.assets:
+                    self.assets[key].setdefault("cube:dimensions", {})
         return self
