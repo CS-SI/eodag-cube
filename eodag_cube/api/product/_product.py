@@ -370,7 +370,7 @@ class EOProduct(EOProduct_core):
 
             # update product properties
             self.properties |= build_stac_metadata(ds)
-            self.properties["bands"] = build_bands(xd)
+            self.properties["bands"] = build_bands(ds)
 
         else:
             # have roles been set in assets ?
@@ -398,7 +398,7 @@ class EOProduct(EOProduct_core):
                 has_band_data = any("band_data" in ds.data_vars for ds in xd.values())
 
                 if has_band_data:
-                    generated_bands = build_bands(xd)
+                    generated_bands = build_bands(ds)
                     if "bands" in asset:
                         asset["bands"] = merge_bands(asset["bands"], generated_bands)
                     else:

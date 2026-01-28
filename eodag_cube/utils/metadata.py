@@ -23,8 +23,6 @@ from typing import Any, Union
 import numpy as np
 from xarray import DataArray, Dataset
 
-from eodag_cube.types import XarrayDict
-
 
 def extract_projection_info(ds: Dataset) -> dict[str, Any]:
     """
@@ -190,31 +188,27 @@ def build_stac_metadata(ds: Dataset) -> dict[str, Any]:
     return {"cube:dimensions": dimensions, "cube:variables": variables, **proj_info}
 
 
-def build_bands(xd: XarrayDict) -> list[dict]:
+def build_bands(ds: Dataset) -> list[dict]:
     """
-    Build STAC bands metadata from xarray datasets.
+    Build STAC bands metadata from xarray dataset.
 
     If names are not available, use generic band names.
 
-    :param xd: input xarray dict
+    :param ds: input xarray dataset
     :return: list of bands metadata
     """
     band_count = 0
 
-    for ds in xd.values():
-        for var in ds.data_vars.values():
-            for dim in var.dims:
-                if str(dim).lower() in ("band", "bands"):
-                    band_count = ds.sizes[dim]
-                    break
-            if band_count:
+    for var in ds.data_vars.values():
+        for dim in var.dims:
+            if str(dim).lower() in ("band", "bands"):
+                band_count = ds.sizes[dim]
                 break
-
         if band_count:
             break
 
     if band_count == 0:
-        band_count = len(next(iter(xd.values())).data_vars)
+        band_count = len(ds.data_vars)
 
     return [{"name": f"band{i + 1}"} for i in range(band_count)]
 
