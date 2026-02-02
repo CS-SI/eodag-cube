@@ -2,7 +2,38 @@
 Release history
 ===============
 
-.. _changelog-unreleased:
+v0.7.0b1 (2026-02-02)
+=====================
+
+Features
+--------
+
+* Add augment_from_xarray for EOProduct (`#113`_, `5581b79`_)
+
+Bug Fixes
+---------
+
+* Augmented metadata formatting (`#117`_, `463690e`_)
+
+Continuous Integration
+----------------------
+
+* Check-toml and pre-commit replaced with faster prek (`#115`_, `2b1ec8b`_)
+
+Refactoring
+-----------
+
+* Build stac metadata methods (`#118`_, `a80fb59`_)
+
+.. _#113: https://github.com/CS-SI/eodag-cube/pull/113
+.. _#115: https://github.com/CS-SI/eodag-cube/pull/115
+.. _#117: https://github.com/CS-SI/eodag-cube/pull/117
+.. _#118: https://github.com/CS-SI/eodag-cube/pull/118
+.. _2b1ec8b: https://github.com/CS-SI/eodag-cube/commit/2b1ec8b2959511cca196879fed89faaab83d04e7
+.. _463690e: https://github.com/CS-SI/eodag-cube/commit/463690e6f121a5e3b2d712e580832af4a44cbc0a
+.. _5581b79: https://github.com/CS-SI/eodag-cube/commit/5581b79d2a9fa1f22cdce30a97e158ff6388a528
+.. _a80fb59: https://github.com/CS-SI/eodag-cube/commit/a80fb5975a339e5253227f8db2ed4966b7fb472a
+
 
 v0.7.0a1 (2025-10-20)
 =====================
