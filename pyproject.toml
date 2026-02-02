@@ -49,7 +49,7 @@ Repository = "https://github.com/CS-SI/eodag-cube"
 dev = [
     "flake8",
     "isort",
-    "pre-commit",
+    "prek",
     "pytest",
     "pytest-cov",
     "tox",
