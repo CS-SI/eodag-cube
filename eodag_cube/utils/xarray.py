@@ -101,18 +101,38 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
 
         try:
             if engine == "rasterio":
-                # prevents to read all file in memory since rasterio 1.4.0
-                # https://github.com/rasterio/rasterio/issues/3232
-                opener = file.fs.open if not any(p in file.fs.protocol for p in ["local", "s3"]) else None
                 # fix messy protocol with zip+s3
                 clean_url = getattr(file, "full_name", file.path).replace("s3://zip+s3://", "zip+s3://")
-                da = rioxarray.open_rasterio(
-                    clean_url,
-                    opener=opener,
-                    # default value from RasterioBackend
-                    mask_and_scale=True,
-                    **xarray_kwargs,
-                )
+
+                if "zip+s3://" in clean_url and "!" in clean_url:
+                    # Use fsspec ZipFileSystem as the rasterio opener so that
+                    # GDAL reads from the zip via fsspec (which already holds
+                    # the S3 credentials) instead of through its own
+                    # /vsizip/vsis3/ handler, which may fail when the GDAL
+                    # environment is not propagated correctly (rasterio ≥ 1.5).
+                    from fsspec.implementations.zip import ZipFileSystem
+
+                    zip_part, inner_path = clean_url.split("!", 1)
+                    s3_archive = zip_part.replace("zip+s3://", "")
+                    zip_fs = ZipFileSystem(fo=s3_archive, target_protocol="s3", target_options=file.fs.storage_options)
+                    da = rioxarray.open_rasterio(
+                        inner_path,
+                        opener=zip_fs,
+                        # default value from RasterioBackend
+                        mask_and_scale=True,
+                        **xarray_kwargs,
+                    )
+                else:
+                    # prevents to read all file in memory since rasterio 1.4.0
+                    # https://github.com/rasterio/rasterio/issues/3232
+                    opener = file.fs.open if not any(p in file.fs.protocol for p in ["local", "s3"]) else None
+                    da = rioxarray.open_rasterio(
+                        clean_url,
+                        opener=opener,
+                        # default value from RasterioBackend
+                        mask_and_scale=True,
+                        **xarray_kwargs,
+                    )
                 ds_or_list = da.to_dataset(name="band_data") if isinstance(da, xr.DataArray) else da
                 if isinstance(ds_or_list, list):
                     logger.warning(f"Only 1/{len(ds_or_list)} datasets list was kept for {file.path}")
