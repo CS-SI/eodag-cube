@@ -2,6 +2,24 @@
 Release history
 ===============
 
+.. _changelog-unreleased:
+
+v0.7.0 (2026-03-16)
+===================
+
+Major changes since last stable (`v0.6.3 <CHANGES.rst#v0-6-3-2025-10-20>`_)
+---------------------------------------------------------------------------
+
+Features
+^^^^^^^^
+
+* Add augment_from_xarray for EOProduct (`#113`_, `5581b79`_)
+
+Refactoring
+^^^^^^^^^^^
+
+* Eodag v4 usage and remove deprecated get_data (`#109`_, `42b4841`_)
+
 v0.7.0b1 (2026-02-02)
 =====================
 
