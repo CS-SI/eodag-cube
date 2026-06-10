@@ -44,9 +44,14 @@ class TestEOProductXarray(EODagTestCase):
         )
         product.location = path_to_uri(products_path)
 
+        # cfgrib relies on eccodes which may not be available on all platforms;
+        # without it the .grib product cannot be opened
+        cfgrib_available = "cfgrib" in xr.backends.list_engines()
+        expected_len = 3 if cfgrib_available else 2
+
         with product.to_xarray() as xarray_dict:
             self.assertIsInstance(xarray_dict, XarrayDict)
-            self.assertEqual(len(xarray_dict), 3)
+            self.assertEqual(len(xarray_dict), expected_len)
 
             sorted_keys = sorted(xarray_dict.keys())
             # sort
@@ -66,7 +71,7 @@ class TestEOProductXarray(EODagTestCase):
         # check representations
         xd_repr = xarray_dict.__repr__()
         self.assertIsInstance(xd_repr, str)
-        self.assertTrue(xd_repr.startswith("<XarrayDict> (3)\n{"))
+        self.assertTrue(xd_repr.startswith(f"<XarrayDict> ({expected_len})\n{{"))
         self.assertTrue(xd_repr.endswith("}"))
         self.assertIn("Dataset", xd_repr)
         xd_repr_html = xarray_dict._repr_html_()

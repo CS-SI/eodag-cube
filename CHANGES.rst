@@ -2,7 +2,38 @@
 Release history
 ===============
 
-.. _changelog-unreleased:
+v0.7.1 (2026-06-10)
+===================
+
+Performance Improvements
+------------------------
+
+* Optimized imports and initializations (`#123`_, `f50ac7b`_)
+
+Build System
+------------
+
+* Add python3.14 support (`#124`_, `f6a881a`_)
+
+Continuous Integration
+----------------------
+
+* Benchmark for perf regression checks (`#122`_, `5b1201a`_)
+
+Testing
+-------
+
+* Removed tests warnings (`#125`_, `4a674d2`_)
+
+.. _#122: https://github.com/CS-SI/eodag-cube/pull/122
+.. _#123: https://github.com/CS-SI/eodag-cube/pull/123
+.. _#124: https://github.com/CS-SI/eodag-cube/pull/124
+.. _#125: https://github.com/CS-SI/eodag-cube/pull/125
+.. _4a674d2: https://github.com/CS-SI/eodag-cube/commit/4a674d25507dd80d2f838264e42cdbe30b0632b2
+.. _5b1201a: https://github.com/CS-SI/eodag-cube/commit/5b1201aed059d70f171cbbb29847c9760e1afb38
+.. _f50ac7b: https://github.com/CS-SI/eodag-cube/commit/f50ac7b752a01e53173e101a4916a8d4379e07e1
+.. _f6a881a: https://github.com/CS-SI/eodag-cube/commit/f6a881aca89b8f4332e059e9cdee0a97c9639c68
+
 
 v0.7.0 (2026-03-16)
 ===================

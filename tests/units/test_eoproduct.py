@@ -225,7 +225,7 @@ class TestEOProduct(EODagTestCase):
         with self.assertRaises(DatasetCreationError, msg=f"foo not found in {product} assets"):
             product._get_storage_options(asset_key="foo")
 
-    @mock.patch("eodag_cube.api.product._product.fsspec.filesystem")
+    @mock.patch("fsspec.filesystem")
     @mock.patch("eodag_cube.api.product._product.EOProduct._get_storage_options", autospec=True)
     def test_get_file_obj(self, mock_storage_options, mock_fs):
         """get_file_obj should call fsspec open with appropriate args"""
@@ -259,7 +259,7 @@ class TestEOProduct(EODagTestCase):
         with self.assertRaises(UnsupportedDatasetAddressScheme, msg=f"Could not get {product} path"):
             product.get_file_obj()
 
-    @mock.patch("eodag_cube.api.product._product.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
     def test_to_xarray(self, mock_get_file, mock_open_ds):
         """to_xarrray should return well built XarrayDict"""
@@ -273,7 +273,7 @@ class TestEOProduct(EODagTestCase):
         self.assertTrue(xd["data"].equals(mock_open_ds.return_value))
         self.assertDictEqual(product.properties, xd["data"].attrs)
 
-    @mock.patch("eodag_cube.api.product._product.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
     def test_to_xarray_assets(self, mock_get_file, mock_open_ds):
         """to_xarrray should return well built XarrayDict"""

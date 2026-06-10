@@ -20,7 +20,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Union
 
-import xarray as xr
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
 from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT
@@ -28,6 +27,7 @@ from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT
 if TYPE_CHECKING:
     from contextlib import nullcontext
 
+    import xarray as xr
     from fsspec.core import OpenFile
     from rasterio.env import Env
 
