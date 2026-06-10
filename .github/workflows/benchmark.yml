@@ -33,14 +33,14 @@ jobs:
 
         echo "Running benchmark on develop"
         git checkout --detach origin/develop
-        uvx --python 3.13 --with tox-uv tox -e benchmark -- --benchmark-json baseline.json
+        uvx --python 3.14 --with tox-uv tox -e benchmark -- --benchmark-json baseline.json
 
         echo "Running benchmark on current ref"
         git checkout --detach "${CURRENT_SHA}"
-        uvx --python 3.13 --with tox-uv tox -e benchmark -- --benchmark-json candidate.json
+        uvx --python 3.14 --with tox-uv tox -e benchmark -- --benchmark-json candidate.json
 
         echo "Comparing benchmark results"
-        uvx --python 3.13 \
+        uvx --python 3.14 \
           --with "pytest-benchmark @ git+https://github.com/ionelmc/pytest-benchmark.git@master" \
           pytest-benchmark compare --between=median \
           baseline.json candidate.json \

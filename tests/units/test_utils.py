@@ -157,8 +157,10 @@ class TestXarray(unittest.TestCase):
         file = OpenFile(fs, "https://foo/bar.nc")
         self.assertIn("h5netcdf", guess_engines(file))
 
-        file = OpenFile(fs, "https://foo/bar.grib")
-        self.assertIn("cfgrib", guess_engines(file))
+        # cfgrib relies on eccodes which may not be available on all platforms
+        if "cfgrib" in all_engines:
+            file = OpenFile(fs, "https://foo/bar.grib")
+            self.assertIn("cfgrib", guess_engines(file))
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"])
     @mock.patch("fsspec.open")
