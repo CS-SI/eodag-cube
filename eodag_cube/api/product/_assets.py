@@ -20,7 +20,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Union
 
-import xarray as xr
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
 from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT
@@ -28,6 +27,7 @@ from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT
 if TYPE_CHECKING:
     from contextlib import nullcontext
 
+    import xarray as xr
     from fsspec.core import OpenFile
     from rasterio.env import Env
 
@@ -44,7 +44,13 @@ class AssetsDict(AssetsDict_core):
     """
 
     def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
-        super(AssetsDict_core, self).__setitem__(key, Asset(self.product, key, value))
+        # Avoid re-wrapping a value that is already an Asset bound to this
+        # product and key (e.g. when updating from another AssetsDict).
+        if isinstance(value, Asset) and value.product is self.product and value.key == key:
+            asset = value
+        else:
+            asset = Asset(self.product, key, value)
+        super(AssetsDict_core, self).__setitem__(key, asset)
 
 
 class Asset(Asset_core):
