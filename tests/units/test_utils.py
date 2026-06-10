@@ -56,7 +56,6 @@ class TestUtils(unittest.TestCase):
             responses.add(
                 responses.GET,
                 "https://foo/bar.baz",
-                stream=True,
                 status=200,
                 headers={"a-header": "from-get"},
             )
