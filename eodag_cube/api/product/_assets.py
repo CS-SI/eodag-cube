@@ -44,13 +44,7 @@ class AssetsDict(AssetsDict_core):
     """
 
     def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
-        # Avoid re-wrapping a value that is already an Asset bound to this
-        # product and key (e.g. when updating from another AssetsDict).
-        if isinstance(value, Asset) and value.product is self.product and value.key == key:
-            asset = value
-        else:
-            asset = Asset(self.product, key, value)
-        super(AssetsDict_core, self).__setitem__(key, asset)
+        super(AssetsDict_core, self).__setitem__(key, Asset(self.product, key, value))
 
 
 class Asset(Asset_core):
