@@ -17,18 +17,13 @@
 # limitations under the License.
 from __future__ import annotations
 
-import concurrent.futures
 import logging
 import os
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Iterable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union, cast
 from urllib.parse import urlparse
 
-import fsspec
-import rasterio
-from boto3 import Session
-from boto3.resources.base import ServiceResource
 from eodag.api.product._product import EOProduct as EOProduct_core
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from eodag.plugins.authentication.aws_auth import AwsAuth
@@ -38,16 +33,17 @@ from eodag.utils import (
     USER_AGENT,
 )
 from eodag.utils.exceptions import UnsupportedDatasetAddressScheme
-from fsspec.core import OpenFile
 from requests import PreparedRequest
 from requests.auth import AuthBase
 from requests.structures import CaseInsensitiveDict
 
-from eodag_cube.api.product._assets import AssetsDict
-from eodag_cube.types import XarrayDict
 from eodag_cube.utils.exceptions import DatasetCreationError
-from eodag_cube.utils.metadata import build_bands, build_stac_metadata, merge_bands
-from eodag_cube.utils.xarray import try_open_dataset
+
+if TYPE_CHECKING:
+    import rasterio
+    from fsspec.core import OpenFile
+
+    from eodag_cube.types import XarrayDict
 
 logger = logging.getLogger("eodag-cube.api.product")
 
@@ -89,10 +85,10 @@ class EOProduct(EOProduct_core):
     """
 
     def __init__(self, provider: str, properties: dict[str, Any], **kwargs: Any) -> None:
+        # ``EOProduct_core.__init__`` already builds ``self.assets`` using the
+        # eodag-cube ``AssetsDict`` (eodag resolves it to eodag-cube when installed),
+        # so no asset rebuild is needed here.
         super(EOProduct, self).__init__(provider=provider, properties=properties, **kwargs)
-        core_assets_data = self.assets.data
-        self.assets = AssetsDict(self)
-        self.assets.update(core_assets_data)
 
     def _get_rio_env(self, dataset_address: str) -> dict[str, Any]:
         """Get rasterio environment variables needed for data access.
@@ -100,6 +96,8 @@ class EOProduct(EOProduct_core):
         :param dataset_address: address of the data to read
         :return: The rasterio environment variables
         """
+        import rasterio
+
         product_location_scheme = dataset_address.split("://")[0]
         if "s3" in product_location_scheme and isinstance(self.downloader_auth, AwsAuth):
             rio_env_dict = {"session": rasterio.session.AWSSession(**self.downloader_auth.get_rio_env())}
@@ -127,6 +125,9 @@ class EOProduct(EOProduct_core):
         """
         Get fsspec storage_options keyword arguments
         """
+        from boto3 import Session
+        from boto3.resources.base import ServiceResource
+
         auth = self.downloader_auth.authenticate() if self.downloader_auth else None
         if self.downloader is None:
             return {}
@@ -186,6 +187,9 @@ class EOProduct(EOProduct_core):
                         stop checking order status
         :returns: product data file object
         """
+        import fsspec
+        from fsspec.core import OpenFile
+
         storage_options = self._get_storage_options(asset_key, wait, timeout)
 
         path = storage_options.pop("path", None)
@@ -207,6 +211,8 @@ class EOProduct(EOProduct_core):
         :param dataset_address: address of the data to read
         :return: The rasterio environment
         """
+        import rasterio
+
         if dataset_address:
             if env_dict := self._get_rio_env(dataset_address):
                 return rasterio.Env(**env_dict)
@@ -225,6 +231,11 @@ class EOProduct(EOProduct_core):
         :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
+        import fsspec
+
+        from eodag_cube.types import XarrayDict
+        from eodag_cube.utils.xarray import try_open_dataset
+
         xarray_dict = XarrayDict()
         fs = fsspec.filesystem("file")
 
@@ -273,6 +284,13 @@ class EOProduct(EOProduct_core):
         :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
+        import concurrent.futures
+
+        import rasterio
+
+        from eodag_cube.types import XarrayDict
+        from eodag_cube.utils.xarray import try_open_dataset
+
         if asset_key is None and len(self.assets) > 0:
             # assets
 
@@ -360,6 +378,8 @@ class EOProduct(EOProduct_core):
         :param roles: (optional) roles of assets that must be fetched
         :returns: updated EOProduct
         """
+        from eodag_cube.utils.metadata import build_bands, build_stac_metadata, merge_bands
+
         if not self.assets:
             try:
                 xd = self.to_xarray(roles=roles)
