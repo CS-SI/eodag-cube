@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Union
+from typing import TYPE_CHECKING, Any, Dict, Union, cast
 
 from eodag.api.product._assets import Asset as Asset_core
 from eodag.api.product._assets import AssetsDict as AssetsDict_core
@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     import xarray as xr
     from fsspec.core import OpenFile
     from rasterio.env import Env
+
+    from eodag_cube.api.product._product import EOProduct
 
 logger = logging.getLogger("eodag-cube.api.product")
 
@@ -70,14 +72,14 @@ class Asset(Asset_core):
                         stop checking order status
         :returns: asset data file object
         """
-        return self.product.get_file_obj(self.key, wait, timeout)
+        return cast("EOProduct", self.product).get_file_obj(self.key, wait, timeout)
 
     def rio_env(self) -> Union[Env, nullcontext]:
         """Get rasterio environment
 
         :return: The rasterio environment
         """
-        return self.product.rio_env(self.get("href"))
+        return cast("EOProduct", self.product).rio_env(self.get("href"))
 
     def to_xarray(
         self,
