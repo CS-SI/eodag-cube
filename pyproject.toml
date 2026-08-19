@@ -10,9 +10,10 @@ readme = "README.rst"
 authors = [
     {name = "CS GROUP - France", email = "eodag@csgroup.space"}
 ]
-license = {text = "Apache 2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
-    "eodag >= 4.6.0",
+    "eodag >= 4.7.0",
     "numpy",
     "rasterio",
     "xarray",

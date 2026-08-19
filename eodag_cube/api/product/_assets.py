@@ -45,8 +45,8 @@ class AssetsDict(AssetsDict_core):
     :param kwargs: (optional) Additional named-arguments used to init the dictionary
     """
 
-    def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
-        super(AssetsDict_core, self).__setitem__(key, Asset(self.product, key, value))
+    def _make_asset(self, key: str, value: Dict[str, Any]) -> Asset:
+        return Asset(self.product, key, value)
 
 
 class Asset(Asset_core):
