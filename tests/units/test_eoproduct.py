@@ -25,14 +25,9 @@ from tests import EODagTestCase
 from tests.context import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
-    USER_AGENT,
     AwsAuth,
     AwsDownload,
-    DatasetCreationError,
-    Download,
     EOProduct,
-    HTTPHeaderAuth,
-    HttpQueryStringAuth,
     PluginConfig,
     UnsupportedDatasetAddressScheme,
 )
@@ -73,160 +68,8 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
         self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
 
-    def test_get_storage_options_http_headers(self):
-        """_get_storage_options should be adapted to the provider config"""
-        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        # http headers auth
-        product.register_downloader(
-            Download("foo", PluginConfig()),
-            HTTPHeaderAuth(
-                "foo",
-                PluginConfig.from_mapping(
-                    {
-                        "type": "Download",
-                        "credentials": {"apikey": "foo"},
-                        "headers": {"X-API-Key": "{apikey}"},
-                    }
-                ),
-            ),
-        )
-        self.assertDictEqual(
-            product._get_storage_options(),
-            {
-                "path": self.download_url,
-                "headers": {"X-API-Key": "foo", **USER_AGENT},
-            },
-        )
-
-    def test_get_storage_options_http_no_auth(self):
-        """_get_storage_options should be return path when no auth"""
-        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        # http headers auth
-        product.register_downloader(
-            Download("foo", PluginConfig()),
-            None,
-        )
-        self.assertDictEqual(
-            product._get_storage_options(),
-            {
-                "path": self.download_url,
-            },
-        )
-
-    def test_get_storage_options_http_qs(self):
-        """_get_storage_options should be adapted to the provider config"""
-        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        # http qs auth
-        product.register_downloader(
-            Download("foo", PluginConfig()),
-            HttpQueryStringAuth(
-                "foo",
-                PluginConfig.from_mapping(
-                    {
-                        "type": "Download",
-                        "credentials": {"apikey": "foo"},
-                    }
-                ),
-            ),
-        )
-        self.assertDictEqual(
-            product._get_storage_options(),
-            {
-                "path": f"{self.download_url}?apikey=foo",
-                "headers": USER_AGENT,
-            },
-        )
-
-    def test_get_storage_options_s3_credentials_endpoint(self):
-        """_get_storage_options should be adapted to the provider config using s3 credentials and endpoint"""
-        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        product.register_downloader(
-            Download("foo", PluginConfig()),
-            AwsAuth(
-                "foo",
-                PluginConfig.from_mapping(
-                    {
-                        "type": "Authentication",
-                        "s3_endpoint": "http://foo.bar",
-                        "credentials": {
-                            "aws_access_key_id": "foo",
-                            "aws_secret_access_key": "bar",
-                            "aws_session_token": "baz",
-                        },
-                        "requester_pays": True,
-                    }
-                ),
-            ),
-        )
-        self.assertDictEqual(
-            product._get_storage_options(),
-            {
-                "path": self.download_url,
-                "key": "foo",
-                "secret": "bar",
-                "token": "baz",
-                "client_kwargs": {"endpoint_url": "http://foo.bar"},
-                "requester_pays": True,
-            },
-        )
-
-    def test_get_storage_options_s3_credentials(self):
-        """_get_storage_options should be adapted to the provider config using s3 credentials"""
-        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        product.register_downloader(
-            Download("foo", PluginConfig()),
-            AwsAuth(
-                "foo",
-                PluginConfig.from_mapping(
-                    {
-                        "type": "Authentication",
-                        "credentials": {
-                            "aws_access_key_id": "foo",
-                            "aws_secret_access_key": "bar",
-                            "aws_session_token": "baz",
-                        },
-                    }
-                ),
-            ),
-        )
-        self.assertDictEqual(
-            product._get_storage_options(),
-            {
-                "path": self.download_url,
-                "key": "foo",
-                "secret": "bar",
-                "token": "baz",
-            },
-        )
-
-    @mock.patch("boto3.Session.get_credentials", return_value=None)
-    def test_get_storage_options_s3_anon(self, mock_get_credentials):
-        """_get_storage_options should be adapted to the provider config using anonymous s3 access"""
-        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        product.register_downloader(
-            Download("foo", PluginConfig()),
-            AwsAuth(
-                "foo",
-                PluginConfig.from_mapping({"type": "Authentication", "requester_pays": True}),
-            ),
-        )
-        self.assertDictEqual(
-            product._get_storage_options(),
-            {
-                "path": self.download_url,
-                "anon": True,
-            },
-        )
-
-    def test_get_storage_options_error(self):
-        """_get_storage_options should be adapted to the provider config"""
-        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        product.downloader = mock.MagicMock()
-        with self.assertRaises(DatasetCreationError, msg=f"foo not found in {product} assets"):
-            product._get_storage_options(asset_key="foo")
-
     @mock.patch("fsspec.filesystem")
-    @mock.patch("eodag_cube.api.product._product.EOProduct._get_storage_options", autospec=True)
+    @mock.patch("eodag.api.product._product.EOProduct.get_storage_options", autospec=True)
     def test_get_file_obj(self, mock_storage_options, mock_fs):
         """get_file_obj should call fsspec open with appropriate args"""
         product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
