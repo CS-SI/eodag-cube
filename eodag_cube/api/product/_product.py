@@ -190,7 +190,7 @@ class EOProduct(EOProduct_core):
         import fsspec
         from fsspec.core import OpenFile
 
-        storage_options = self._get_storage_options(asset_key, wait, timeout)
+        storage_options = self.get_storage_options(asset_key, wait, timeout)
 
         path = storage_options.pop("path", None)
         if path is None:
