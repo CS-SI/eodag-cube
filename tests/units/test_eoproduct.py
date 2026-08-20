@@ -139,3 +139,18 @@ class TestEOProduct(EODagTestCase):
         self.assertTrue(xd["bar"].equals(mock_open_ds.return_value))
         self.assertDictEqual(product.properties, xd["foo"].attrs)
         self.assertDictEqual(product.properties, xd["bar"].attrs)
+
+    def test_assets_are_sorted_when_updated(self):
+        """Assets should remain sorted and wrapped when updated."""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+
+        product.assets.update(
+            {
+                "foo": {"href": "http://foo.bar"},
+                "bar": {"href": "http://bar.baz"},
+            }
+        )
+        product.assets["baz"] = {"href": "http://baz.qux"}
+
+        self.assertEqual(list(product.assets), ["bar", "baz", "foo"])
+        self.assertTrue(all(asset.product is product for asset in product.assets.values()))
