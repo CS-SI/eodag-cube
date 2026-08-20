@@ -2,6 +2,34 @@
 Release history
 ===============
 
+.. _changelog-unreleased:
+
+v0.8.0 (2026-08-20)
+===================
+
+Features
+--------
+
+* Harmonize assets update with eodag-core (`#128`_, `75b3688`_)
+
+Refactoring
+-----------
+
+* Use get_storage_option from eodag (`#129`_, `4626e1d`_)
+
+Chores
+------
+
+* Asset.product typing fix (`#127`_, `7f03f8a`_)
+
+.. _#127: https://github.com/CS-SI/eodag-cube/pull/127
+.. _#128: https://github.com/CS-SI/eodag-cube/pull/128
+.. _#129: https://github.com/CS-SI/eodag-cube/pull/129
+.. _4626e1d: https://github.com/CS-SI/eodag-cube/commit/4626e1df88252f795ff26989acc12f3a0203c9a6
+.. _75b3688: https://github.com/CS-SI/eodag-cube/commit/75b36886371c68911bafeb3428bf1b796a425e47
+.. _7f03f8a: https://github.com/CS-SI/eodag-cube/commit/7f03f8a74fad2dd1911ae9d2228ec6ffcc62a4f5
+
+
 v0.7.1 (2026-06-10)
 ===================
 
