@@ -140,6 +140,73 @@ class TestEOProduct(EODagTestCase):
         self.assertDictEqual(product.properties, xd["foo"].attrs)
         self.assertDictEqual(product.properties, xd["bar"].attrs)
 
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_single_asset_remote_failure(self, mock_get_file, mock_download):
+        """A remote read failure should be raised without downloading by default."""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        mock_get_file.side_effect = OSError("remote read failed")
+
+        with self.assertRaisesRegex(OSError, "remote read failed"):
+            product.to_xarray()
+
+        mock_download.assert_not_called()
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_download_fallback(self, mock_get_file, mock_download):
+        """A remote read failure should trigger a download when requested."""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        mock_get_file.side_effect = OSError("remote read failed")
+        mock_download.side_effect = RuntimeError("download attempted")
+
+        with self.assertRaisesRegex(RuntimeError, "download attempted"):
+            product.to_xarray(download_fallback=True)
+
+        mock_download.assert_called_once_with(
+            product,
+            asset=None,
+            wait=DEFAULT_DOWNLOAD_WAIT,
+            timeout=DEFAULT_DOWNLOAD_TIMEOUT,
+            extract=True,
+        )
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_assets_skip_failures(self, mock_get_file, mock_download):
+        """Remote read failures should be skipped when reading several assets."""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.assets.update(
+            {
+                "foo": {"href": "http://foo.bar"},
+                "bar": {"href": "http://bar.baz"},
+            }
+        )
+        mock_get_file.side_effect = OSError("remote read failed")
+
+        xd = product.to_xarray()
+
+        self.assertFalse(xd)
+        mock_download.assert_not_called()
+
+    def test_asset_to_xarray_download_fallback(self):
+        """Asset.to_xarray should forward the download fallback option."""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.assets.update({"foo": {"href": "http://foo.bar"}})
+        dataset = xr.Dataset()
+
+        with mock.patch.object(product, "to_xarray", return_value={"foo": dataset}) as mock_to_xarray:
+            result = product.assets["foo"].to_xarray(download_fallback=True, foo="bar")
+
+        self.assertIs(result, dataset)
+        mock_to_xarray.assert_called_once_with(
+            "foo",
+            DEFAULT_DOWNLOAD_WAIT,
+            DEFAULT_DOWNLOAD_TIMEOUT,
+            download_fallback=True,
+            foo="bar",
+        )
+
     def test_assets_are_sorted_when_updated(self):
         """Assets should remain sorted and wrapped when updated."""
         product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)

@@ -269,6 +269,7 @@ class EOProduct(EOProduct_core):
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
         roles: Iterable[str] = {"data", "data-mask"},
+        download_fallback: bool = False,
         **xarray_kwargs: Any,
     ) -> XarrayDict:
         """
@@ -281,6 +282,7 @@ class EOProduct(EOProduct_core):
         :param timeout: (optional) If order is needed, maximum time in minutes before
                         stop checking order status
         :param roles: (optional) roles of assets that must be fetched
+        :param download_fallback: (optional) download assets that cannot be read remotely
         :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
@@ -300,7 +302,15 @@ class EOProduct(EOProduct_core):
             xd = XarrayDict()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = (
-                    executor.submit(self.to_xarray, key, wait, timeout, **xarray_kwargs)
+                    executor.submit(
+                        self.to_xarray,
+                        asset_key=key,
+                        wait=wait,
+                        timeout=timeout,
+                        roles=roles,
+                        download_fallback=download_fallback,
+                        **xarray_kwargs,
+                    )
                     for key, asset in self.assets.items()
                     if roles
                     and asset.get("roles")
@@ -312,12 +322,11 @@ class EOProduct(EOProduct_core):
                     try:
                         future_xd = future.result()
                         xd.update(**future_xd)
-                    except DatasetCreationError as e:
+                    except Exception as e:
                         logger.debug(e)
 
-            if xd:
-                xd.sort()
-                return xd
+            xd.sort()
+            return xd
 
         # single file
         try:
@@ -342,6 +351,9 @@ class EOProduct(EOProduct_core):
             DatasetCreationError,
         ) as e:
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
+
+            if not download_fallback:
+                raise
 
             # download the file and try again with local files
             path = self.download(asset=asset_key, wait=wait, timeout=timeout, extract=True)

@@ -85,6 +85,7 @@ class Asset(Asset_core):
         self,
         wait: float = DEFAULT_DOWNLOAD_WAIT,
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+        download_fallback: bool = False,
         **xarray_kwargs: Any,
     ) -> xr.Dataset:
         """
@@ -94,10 +95,17 @@ class Asset(Asset_core):
                      order status check
         :param timeout: (optional) If order is needed, maximum time in minutes before
                         stop checking order status
+        :param download_fallback: (optional) download the asset if it cannot be read remotely
         :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: Asset data as a :class:`xarray.Dataset`
         """
-        xd = self.product.to_xarray(self.key, wait, timeout, **xarray_kwargs)
+        xd = self.product.to_xarray(
+            self.key,
+            wait,
+            timeout,
+            download_fallback=download_fallback,
+            **xarray_kwargs,
+        )
         if len(xd) > 1:
             logger.warning(f"Several Datasets were returned for {self.product} {self.key}: {xd.keys()}")
         return next(iter(xd.values()))
