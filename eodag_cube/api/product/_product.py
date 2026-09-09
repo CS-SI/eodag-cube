@@ -21,21 +21,16 @@ import logging
 import os
 from contextlib import nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 from urllib.parse import urlparse
 
 from eodag.api.product._product import EOProduct as EOProduct_core
-from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from eodag.plugins.authentication.aws_auth import AwsAuth
 from eodag.utils import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
-    USER_AGENT,
 )
 from eodag.utils.exceptions import UnsupportedDatasetAddressScheme
-from requests import PreparedRequest
-from requests.auth import AuthBase
-from requests.structures import CaseInsensitiveDict
 
 from eodag_cube.utils.exceptions import DatasetCreationError
 
@@ -115,61 +110,6 @@ class EOProduct(EOProduct_core):
             return rio_env_dict
         else:
             return {}
-
-    def _get_storage_options(
-        self,
-        asset_key: Optional[str] = None,
-        wait: float = DEFAULT_DOWNLOAD_WAIT,
-        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
-    ) -> dict[str, Any]:
-        """
-        Get fsspec storage_options keyword arguments
-        """
-        from boto3 import Session
-        from boto3.resources.base import ServiceResource
-
-        auth = self.downloader_auth.authenticate() if self.downloader_auth else None
-        if self.downloader is None:
-            return {}
-
-        # order if product is offline
-        if self.properties.get("order:status") == OFFLINE_STATUS and hasattr(self.downloader, "order"):
-            self.downloader.order(self, auth, wait=wait, timeout=timeout)
-
-        # default url and headers
-        try:
-            url = self.assets[asset_key]["href"] if asset_key else self.location
-        except KeyError as e:
-            raise DatasetCreationError(f"{asset_key} not found in {self} assets") from e
-        headers = {**USER_AGENT}
-
-        if isinstance(auth, ServiceResource) and isinstance(self.downloader_auth, AwsAuth):
-            auth_kwargs: dict[str, Any] = dict()
-            # AwsAuth
-            if s3_endpoint := getattr(self.downloader_auth.config, "s3_endpoint", None):
-                auth_kwargs["client_kwargs"] = {"endpoint_url": s3_endpoint}
-            if creds := cast(Session, self.downloader_auth.s3_session).get_credentials():
-                auth_kwargs["key"] = creds.access_key
-                auth_kwargs["secret"] = creds.secret_key
-                if creds.token:
-                    auth_kwargs["token"] = creds.token
-                if requester_pays := getattr(self.downloader_auth.config, "requester_pays", False):
-                    auth_kwargs["requester_pays"] = requester_pays
-            else:
-                auth_kwargs["anon"] = True
-            return {"path": url, **auth_kwargs}
-
-        if isinstance(auth, AuthBase):
-            # update url and headers with auth
-            req = PreparedRequest()
-            req.url = url
-            req.headers = CaseInsensitiveDict(headers)
-
-            auth_req = auth(req) if auth else req
-
-            return {"path": auth_req.url, "headers": auth_req.headers}
-
-        return {"path": url}
 
     def get_file_obj(
         self,
