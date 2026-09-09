@@ -135,7 +135,7 @@ def test_benchmark_to_xarray_local(benchmark):
         product = EOProduct(case.provider, case.eoproduct_props, collection=case.collection)
         product.register_downloader(AwsDownload("foo", PluginConfig()), None)
         product.location = path_to_uri(products_path)
-        with product.to_xarray() as xarray_dict:
+        with product.to_xarray(download_fallback=True) as xarray_dict:
             return len(xarray_dict)
 
     try:
