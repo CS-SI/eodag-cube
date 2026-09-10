@@ -2,7 +2,25 @@
 Release history
 ===============
 
-.. _changelog-unreleased:
+
+v0.9.0 (2026-09-10)
+===================
+
+Features
+--------
+
+* Make xarray download fallback opt-in (`#131`_, `efce393`_)
+
+Refactoring
+-----------
+
+* Removed no-more-used _get_storage_options (`#132`_, `5d12391`_)
+
+.. _#131: https://github.com/CS-SI/eodag-cube/pull/131
+.. _#132: https://github.com/CS-SI/eodag-cube/pull/132
+.. _5d12391: https://github.com/CS-SI/eodag-cube/commit/5d12391b6864fdf0219802333b4003731bfa4dc5
+.. _efce393: https://github.com/CS-SI/eodag-cube/commit/efce393f9cd1623b0b4627b8da394c54c03af687
+
 
 v0.8.0 (2026-08-20)
 ===================
@@ -124,8 +142,6 @@ Refactoring
 .. _42b4841: https://github.com/CS-SI/eodag-cube/commit/42b4841492f76320c05c03dec8fca6fa3ba38cf8
 
 
-.. _changelog-unreleased:
-
 v0.6.3 (2025-10-20)
 ===================
 
@@ -137,8 +153,6 @@ Bug Fixes
 .. _#107: https://github.com/CS-SI/eodag-cube/pull/107
 .. _44c0240: https://github.com/CS-SI/eodag-cube/commit/44c02408dab86e64a23b11c75e5aab8aa45104c4
 
-
-.. _changelog-unreleased:
 
 v0.6.2 (2025-10-07)
 ===================
