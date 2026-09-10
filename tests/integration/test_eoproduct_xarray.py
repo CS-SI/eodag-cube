@@ -49,7 +49,7 @@ class TestEOProductXarray(EODagTestCase):
         cfgrib_available = "cfgrib" in xr.backends.list_engines()
         expected_len = 3 if cfgrib_available else 2
 
-        with product.to_xarray() as xarray_dict:
+        with product.to_xarray(download_fallback=True) as xarray_dict:
             self.assertIsInstance(xarray_dict, XarrayDict)
             self.assertEqual(len(xarray_dict), expected_len)
 
