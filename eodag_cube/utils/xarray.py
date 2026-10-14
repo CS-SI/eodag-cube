@@ -151,7 +151,16 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
                         mask_and_scale=True,
                         **xarray_kwargs,
                     )
-                ds_or_list = da.to_dataset(name="band_data") if isinstance(da, xr.DataArray) else da
+                if isinstance(da, xr.DataArray):
+                    ds_or_list = da.to_dataset(name="band_data")
+                    ds_or_list.set_close(da._close)
+                    da.close()
+                else:
+                    ds_or_list = da
+                    for raster_ds in da if isinstance(da, list) else [da]:
+                        close_raster = raster_ds._close
+                        raster_ds.close()
+                        raster_ds.set_close(close_raster)
                 if isinstance(ds_or_list, list):
                     logger.warning(f"Only 1/{len(ds_or_list)} datasets list was kept for {file.path}")
                     ds = ds_or_list[0]

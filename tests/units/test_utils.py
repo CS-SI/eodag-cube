@@ -17,7 +17,11 @@
 # limitations under the License.
 
 import io
+import subprocess
+import sys
+import textwrap
 import unittest
+from pathlib import Path
 
 import fsspec.implementations
 import fsspec.implementations.http
@@ -136,6 +140,57 @@ class TestUtils(unittest.TestCase):
 
 
 class TestXarray(unittest.TestCase):
+    def test_zip_raster_lazy_read_after_concurrent_open(self):
+        archive = next((Path(__file__).parents[1] / "resources/products/as_archive").glob("*.zip"))
+        code = textwrap.dedent(
+            """
+            import sys
+            from concurrent.futures import ThreadPoolExecutor
+            from types import SimpleNamespace
+            from unittest.mock import Mock, patch
+            from zipfile import ZipFile
+
+            from fsspec.implementations.zip import ZipFileSystem
+            from eodag_cube.utils.xarray import try_open_dataset
+
+            archive = sys.argv[1]
+            with ZipFile(archive) as zip_file:
+                member = next(path for path in zip_file.namelist() if path.endswith(".jp2"))
+
+            def open_band():
+                url = "zip+s3://bucket/product.zip!" + member
+                fs = Mock(protocol="s3", storage_options={})
+                fs.open.side_effect = OSError("Read through the ZIP opener")
+                file = SimpleNamespace(fs=fs, path=url, full_name=url)
+                return try_open_dataset(file, engine="rasterio")
+
+            def open_zip(**kwargs):
+                return ZipFileSystem(fo=archive, skip_instance_cache=True)
+
+            with patch("fsspec.implementations.zip.ZipFileSystem", side_effect=open_zip):
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    futures = [executor.submit(open_band) for unused in range(2)]
+                    datasets = [future.result() for future in futures]
+
+            for dataset in datasets:
+                assert not dataset.band_data.variable._in_memory
+                clipped = dataset.isel(x=slice(0, 16), y=slice(0, 16))
+                clipped.load()
+                assert clipped.band_data.shape == (1, 16, 16)
+                projected = clipped.rio.reproject("EPSG:4326")
+                assert projected.rio.crs.to_epsg() == 4326
+                dataset.close()
+            """
+        )
+        result = subprocess.run(
+            [sys.executable, "-X", "faulthandler", "-c", code, str(archive)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=Path(__file__).parents[2],
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_seekable_zip_opener_preserves_lazy_member_access(self):
         from eodag_cube.utils.xarray import _SeekableZipOpener
 
@@ -265,8 +320,13 @@ class TestXarray(unittest.TestCase):
             "eodag_cube.utils.xarray.rioxarray.open_rasterio",
         ) as mock_open_rio:
             mock_open_rio.return_value = xr.DataArray()
+            close_raster = mock.Mock()
+            mock_open_rio.return_value.set_close(close_raster)
             ds = try_open_dataset(file, foo="bar", baz="qux")
             self.assertIsInstance(ds, xr.Dataset)
+            close_raster.assert_called_once_with()
+            ds.close()
+            self.assertEqual(close_raster.call_count, 2)
             mock_open_rio.assert_called_once_with(
                 file.path, opener=mock_open, mask_and_scale=True, foo="bar", baz="qux"
             )
