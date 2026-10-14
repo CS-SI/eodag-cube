@@ -226,8 +226,6 @@ class EOProduct(EOProduct_core):
         :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
-        import concurrent.futures
-
         import rasterio
 
         from eodag_cube.types import XarrayDict
@@ -240,10 +238,18 @@ class EOProduct(EOProduct_core):
             roles_exist = any("roles" in a for a in self.assets.values())
 
             xd = XarrayDict()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = (
-                    executor.submit(
-                        self.to_xarray,
+            asset_keys = (
+                key
+                for key, asset in self.assets.items()
+                if roles
+                and asset.get("roles")
+                and any(r in asset["roles"] for r in roles)
+                or not roles
+                or not roles_exist
+            )
+            for key in asset_keys:
+                try:
+                    asset_xd = self.to_xarray(
                         asset_key=key,
                         wait=wait,
                         timeout=timeout,
@@ -251,19 +257,9 @@ class EOProduct(EOProduct_core):
                         download_fallback=download_fallback,
                         **xarray_kwargs,
                     )
-                    for key, asset in self.assets.items()
-                    if roles
-                    and asset.get("roles")
-                    and any(r in asset["roles"] for r in roles)
-                    or not roles
-                    or not roles_exist
-                )
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        future_xd = future.result()
-                        xd.update(**future_xd)
-                    except Exception as e:
-                        logger.debug(e)
+                    xd.update(**asset_xd)
+                except Exception as e:
+                    logger.debug(e)
 
             xd.sort()
             return xd

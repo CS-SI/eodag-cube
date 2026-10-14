@@ -17,6 +17,7 @@
 # limitations under the License.
 
 import os
+from threading import get_ident
 
 import xarray as xr
 from rasterio.session import AWSSession
@@ -130,7 +131,15 @@ class TestEOProduct(EODagTestCase):
 
         mock_open_ds.return_value = xr.Dataset()
         mock_get_file.return_value.path = "http://foo.bar"
+        opening_threads = []
+
+        def open_dataset(*args, **kwargs):
+            opening_threads.append(get_ident())
+            return mock_open_ds.return_value
+
+        mock_open_ds.side_effect = open_dataset
         xd = product.to_xarray(foo="bar")
+        self.assertEqual(opening_threads, [get_ident(), get_ident()])
         mock_get_file.assert_any_call(product, "foo", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT)
         mock_get_file.assert_any_call(product, "bar", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT)
         mock_open_ds.assert_called_with(mock_get_file.return_value, foo="bar")
