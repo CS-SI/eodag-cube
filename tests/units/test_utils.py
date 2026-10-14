@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import unittest
 
 import fsspec.implementations
@@ -135,6 +136,23 @@ class TestUtils(unittest.TestCase):
 
 
 class TestXarray(unittest.TestCase):
+    def test_seekable_zip_opener_preserves_lazy_member_access(self):
+        from eodag_cube.utils.xarray import _SeekableZipOpener
+
+        member = io.BytesIO(b"raster data")
+        zip_fs = mock.Mock()
+        zip_fs.open.return_value = member
+        opener = _SeekableZipOpener(zip_fs)
+
+        opened = opener.open("band.jp2")
+
+        self.assertIs(opened, member)
+        self.assertTrue(opened._seekable)
+        opened.seek(7)
+        self.assertEqual(opened.read(), b"data")
+        zip_fs.open.assert_called_once_with("band.jp2", "rb")
+        zip_fs.cat_file.assert_not_called()
+
     @mock.patch("eodag_cube.utils.requests.head", autospec=True)
     @mock.patch("eodag_cube.utils.requests.get", autospec=True)
     def test_guess_engines(self, mock_head, mock_get):

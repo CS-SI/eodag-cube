@@ -34,6 +34,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger("eodag-cube.utils.xarray")
 
 
+class _SeekableZipOpener:
+    """Make ZIP members opened by fsspec explicitly seekable for rasterio.
+
+    ``ZipExtFile`` supports seeking, but some Python versions do not expose the
+    private ``_seekable`` attribute inspected by rasterio's ``pyopener_seek``.
+    Set the flag on the member stream instead of buffering the entire member.
+    """
+
+    def __init__(self, zip_fs: Any) -> None:
+        self._zip_fs = zip_fs
+
+    def open(self, path: str, mode: str = "rb") -> Any:
+        member = self._zip_fs.open(path, mode)
+        if not hasattr(member, "_seekable"):
+            member._seekable = True
+        return member
+
+
 def guess_engines(file: OpenFile) -> list[str]:
     """Guess matching ``xarray`` engines for fsspec :class:`fsspec.core.OpenFile`
 
