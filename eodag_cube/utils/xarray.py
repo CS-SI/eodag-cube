@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 
 import rioxarray
 import xarray as xr
@@ -151,6 +151,7 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
                         mask_and_scale=True,
                         **xarray_kwargs,
                     )
+                ds_or_list: Union[xr.Dataset, list[xr.Dataset]]
                 if isinstance(da, xr.DataArray):
                     ds_or_list = da.to_dataset(name="band_data")
                     ds_or_list.set_close(da._close)
