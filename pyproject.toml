@@ -53,6 +53,7 @@ dev = [
     "isort",
     "prek",
     "pytest",
+    "pytest-benchmark",
     "pytest-cov",
     "tox",
     "tox-uv",
