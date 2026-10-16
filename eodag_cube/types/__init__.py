@@ -59,7 +59,9 @@ class XarrayDict(UserDict[str, xr.Dataset]):
     'bar': <xarray.Dataset> (y: 3) Size: 48B}
     """
 
-    _files: dict[str, OpenFile] = {}
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._files: dict[str, OpenFile] = {}
 
     def __enter__(self):
         return self
