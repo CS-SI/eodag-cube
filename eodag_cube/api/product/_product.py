@@ -189,17 +189,19 @@ class EOProduct(EOProduct_core):
         for file_path in files:
             if not os.path.isfile(file_path):
                 continue
+            key, _ = self.driver.guess_asset_key_and_roles(file_path, self)
+            if key is None:
+                logger.debug(f"Could not guess asset key for {file_path}")
+                continue
             file = fs.open(file_path)
             try:
                 ds = try_open_dataset(file, **xarray_kwargs)
-                key, _ = self.driver.guess_asset_key_and_roles(file_path, self)
-                if key is not None:
-                    xarray_dict[key] = ds
-                    xarray_dict._files[key] = file
-                else:
-                    logger.debug(f"Could not guess asset key for {file_path}")
             except DatasetCreationError as e:
+                file.close()
                 logger.debug(e)
+            else:
+                xarray_dict[key] = ds
+                xarray_dict._files[key] = file
 
         return xarray_dict
 
