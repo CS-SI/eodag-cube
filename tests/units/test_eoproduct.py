@@ -17,6 +17,7 @@
 # limitations under the License.
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier, get_ident
 
 import xarray as xr
@@ -181,6 +182,63 @@ class TestEOProduct(EODagTestCase):
         self.assertTrue(xd["bar"].equals(mock_open_ds.return_value))
         self.assertDictEqual(product.properties, xd["foo"].attrs)
         self.assertDictEqual(product.properties, xd["bar"].attrs)
+
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_max_workers(self, mock_get_file, mock_open_ds):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.assets.update({key: {"href": f"https://foo/{key}.tif", "roles": ["data"]} for key in ["foo", "bar"]})
+        mock_get_file.return_value.path = "https://foo/band.tif"
+        mock_open_ds.return_value = xr.Dataset()
+
+        for max_workers in [None, 1, 2]:
+            with self.subTest(max_workers=max_workers):
+                with mock.patch("concurrent.futures.ThreadPoolExecutor", wraps=ThreadPoolExecutor) as mock_executor:
+                    xd = product.to_xarray(max_workers=max_workers, roles=iter(["data"]), foo="bar")
+
+                mock_executor.assert_called_once_with(max_workers=max_workers)
+                self.assertEqual(list(xd), ["bar", "foo"])
+                mock_open_ds.assert_called_with(mock_get_file.return_value, foo="bar")
+
+    @mock.patch("concurrent.futures.ThreadPoolExecutor")
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_filtered_assets_without_executor(self, mock_get_file, mock_open_ds, mock_executor):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.assets.update(
+            {
+                "band": {"href": "https://foo/band.tif", "roles": ["data"]},
+                "metadata": {"href": "https://foo/metadata.xml", "roles": ["metadata"]},
+            }
+        )
+        mock_get_file.return_value.path = "https://foo/band.tif"
+        mock_open_ds.return_value = xr.Dataset()
+
+        for role, fails, expected_keys in [("missing", False, []), ("data", False, ["band"]), ("data", True, [])]:
+            with self.subTest(role=role, fails=fails):
+                mock_get_file.reset_mock()
+                mock_open_ds.reset_mock()
+                mock_open_ds.side_effect = OSError("remote read failed") if fails else None
+
+                xd = product.to_xarray(roles=iter([role]), max_workers=2, foo="bar")
+
+                self.assertEqual(list(xd), expected_keys)
+                if role == "missing":
+                    mock_get_file.assert_not_called()
+                    mock_open_ds.assert_not_called()
+                else:
+                    mock_get_file.assert_called_once_with(
+                        product, "band", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT
+                    )
+                    mock_open_ds.assert_called_once_with(mock_get_file.return_value, foo="bar")
+                mock_executor.assert_not_called()
+
+    def test_to_xarray_rejects_invalid_max_workers(self):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        for max_workers in [0, -1]:
+            with self.subTest(max_workers=max_workers):
+                with self.assertRaisesRegex(ValueError, "max_workers must be greater than 0"):
+                    product.to_xarray(max_workers=max_workers)
 
     @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
