@@ -30,6 +30,7 @@ import responses
 import xarray as xr
 from fsspec.core import OpenFile
 
+from eodag_cube.types import XarrayDict
 from eodag_cube.utils import metadata
 from tests.context import (
     DatasetCreationError,
@@ -140,6 +141,19 @@ class TestUtils(unittest.TestCase):
 
 
 class TestXarray(unittest.TestCase):
+    def test_xarray_dict_file_handles_are_instance_scoped(self):
+        first_file = mock.Mock()
+        second_file = mock.Mock()
+        first = XarrayDict({"same": xr.Dataset()})
+        second = XarrayDict({"same": xr.Dataset()})
+        first._files["same"] = first_file
+        second._files["same"] = second_file
+
+        first.close()
+
+        first_file.close.assert_called_once_with()
+        second_file.close.assert_not_called()
+
     def test_zip_raster_lazy_read_after_concurrent_open(self):
         archive = next((Path(__file__).parents[1] / "resources/products/as_archive").glob("*.zip"))
         code = textwrap.dedent(
