@@ -335,6 +335,7 @@ class TestXarray(unittest.TestCase):
             ds = try_open_dataset(file, foo="bar", baz="qux")
             self.assertIsInstance(ds, xr.Dataset)
             mock_open_dataset.assert_called_once_with(file.path, engine="cfgrib", foo="bar", baz="qux")
+            mock_open.assert_not_called()
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "foo"])
     @mock.patch("fsspec.open")
@@ -352,6 +353,38 @@ class TestXarray(unittest.TestCase):
             ds = try_open_dataset(file, foo="bar", baz="qux")
             self.assertIsInstance(ds, xr.Dataset)
             mock_open_dataset.assert_called_once_with(file, engine="h5netcdf", foo="bar", baz="qux")
+            mock_open.assert_not_called()
+
+    @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["h5netcdf", "scipy"])
+    def test_try_open_dataset_remote_retry_handles(self, mock_guess_engines):
+        for succeeds in [True, False]:
+            with self.subTest(succeeds=succeeds):
+                fs = mock.Mock(protocol="https")
+                file = mock.Mock(fs=fs, path="https://foo/bar.nc")
+                retry_file = fs.open.return_value
+                dataset = xr.Dataset()
+                close_backend = mock.Mock()
+                dataset.set_close(close_backend)
+                results = [ValueError("first backend failed"), dataset if succeeds else ValueError("retry failed")]
+
+                with mock.patch("eodag_cube.utils.xarray.xr.open_dataset", side_effect=results) as mock_open_dataset:
+                    if succeeds:
+                        self.assertIs(try_open_dataset(file), dataset)
+                        retry_file.close.assert_not_called()
+                        close_backend.assert_not_called()
+                        dataset.close()
+                        close_backend.assert_called_once_with()
+                    else:
+                        with self.assertRaises(DatasetCreationError):
+                            try_open_dataset(file)
+
+                self.assertEqual(
+                    mock_open_dataset.call_args_list,
+                    [mock.call(file, engine="h5netcdf"), mock.call(retry_file, engine="scipy")],
+                )
+                fs.open.assert_called_once_with(path=file.path)
+                file.close.assert_called_once_with()
+                retry_file.close.assert_called_once_with()
 
     @mock.patch("eodag_cube.utils.xarray.guess_engines", return_value=["rasterio"])
     @mock.patch("fsspec.open")
@@ -376,6 +409,7 @@ class TestXarray(unittest.TestCase):
             mock_open_rio.assert_called_once_with(
                 file.path, opener=mock_open, mask_and_scale=True, foo="bar", baz="qux"
             )
+            mock_open.assert_not_called()
 
 
 class TestMetadataUtils(unittest.TestCase):
