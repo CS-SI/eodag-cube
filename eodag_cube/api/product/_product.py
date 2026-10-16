@@ -274,6 +274,9 @@ class EOProduct(EOProduct_core):
                     logger.debug(e)
                     return xd
 
+            if isinstance(self.downloader_auth, AwsAuth) and self.downloader_auth.s3_session is None:
+                self.downloader_auth.authenticate()
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = (
                     executor.submit(

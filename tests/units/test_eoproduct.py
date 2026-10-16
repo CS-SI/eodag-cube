@@ -244,6 +244,37 @@ class TestEOProduct(EODagTestCase):
         self.assertDictEqual(product.properties, xd["foo"].attrs)
         self.assertDictEqual(product.properties, xd["bar"].attrs)
 
+    @mock.patch("eodag.plugins.authentication.aws_auth.create_s3_session")
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_initializes_aws_before_workers(self, mock_get_file, mock_open_ds, mock_session):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        auth = AwsAuth("foo", PluginConfig())
+        product.register_downloader(AwsDownload("foo", PluginConfig()), auth)
+        product.assets.update({key: {"href": f"s3://bucket/{key}.tif"} for key in ["foo", "bar"]})
+        mock_get_file.return_value.path = "https://foo/band.tif"
+        mock_open_ds.side_effect = lambda *args, **kwargs: xr.Dataset()
+        opening_barrier = Barrier(2)
+        opening_threads = []
+
+        def get_file(product, asset_key, wait, timeout):
+            self.assertIs(auth.s3_session, mock_session.return_value)
+            opening_threads.append(get_ident())
+            opening_barrier.wait(timeout=5)
+            product.get_storage_options(asset_key, wait, timeout)
+            return mock_get_file.return_value
+
+        mock_get_file.side_effect = get_file
+        with mock.patch("concurrent.futures.ThreadPoolExecutor", wraps=ThreadPoolExecutor) as mock_executor:
+            xd = product.to_xarray(max_workers=2)
+            self.assertIs(auth.s3_session, mock_session.return_value)
+
+        self.assertEqual(list(xd), ["bar", "foo"])
+        self.assertEqual(len(set(opening_threads)), 2)
+        self.assertNotIn(get_ident(), opening_threads)
+        mock_executor.assert_called_once_with(max_workers=2)
+        mock_session.assert_called_once_with()
+
     @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
     def test_to_xarray_max_workers(self, mock_get_file, mock_open_ds):
