@@ -19,6 +19,10 @@
 import os
 import subprocess
 import sys
+from functools import partial
+
+import aiohttp
+import pytest
 
 from tests.context import (
     TEST_RESOURCES_PATH,
@@ -28,6 +32,55 @@ from tests.context import (
     path_to_uri,
 )
 from tests.integration import test_eoproduct_xarray
+
+REMOTE_RASTER_URL = (
+    "https://cs-si.github.io/eodag/tests/resources/products/"
+    "S2A_MSIL1C_20180101T105441_N0206_R051_T31TDH_20180101T124911/"
+    "GRANULE/L1C_T31TDH_A013204_20180101T105435/IMG_DATA/T31TDH_20180101T105441_B01.jp2"
+)
+
+
+def _open_local_datasets(case):
+    """Open the local benchmark products without loading their data."""
+    product = EOProduct(case.provider, case.eoproduct_props, collection=case.collection)
+    product.register_downloader(AwsDownload("foo", PluginConfig()), None)
+    product.location = path_to_uri(os.path.join(TEST_RESOURCES_PATH, "products"))
+    return product.to_xarray(download_fallback=True)
+
+
+def _read_datasets(xarray_dict, read_mode):
+    """Load full datasets or a 16-by-16 window along their spatial dimensions."""
+    loaded_bytes = 0
+    for dataset in xarray_dict.values():
+        if read_mode == "window":
+            indexers = {
+                dim: slice(0, 16) for dim in dataset.dims if dim in {"x", "y", "latitude", "longitude", "lat", "lon"}
+            }
+            dataset = dataset.isel(indexers)
+        dataset.load()
+        loaded_bytes += dataset.nbytes
+    return loaded_bytes
+
+
+def _benchmark_conversion(benchmark, open_datasets, read_mode):
+    """Time opening or loading, with fresh datasets and cleanup for each round."""
+
+    def _open():
+        with open_datasets() as xarray_dict:
+            return len(xarray_dict)
+
+    def _setup():
+        return (open_datasets(), read_mode), {}
+
+    def _teardown(xarray_dict, read_mode):
+        xarray_dict.close()
+
+    if read_mode == "open":
+        assert benchmark(_open) > 0
+    else:
+        loaded_bytes = benchmark.pedantic(_read_datasets, setup=_setup, teardown=_teardown, rounds=5, iterations=1)
+        assert loaded_bytes > 0
+        benchmark.extra_info["loaded_bytes"] = loaded_bytes
 
 
 def _run_unittest_method(test_case_cls, method_name):
@@ -106,6 +159,29 @@ def test_benchmark_eoproduct_instantiation(benchmark):
         case.tearDown()
 
 
+@pytest.mark.parametrize("read_mode", ["open", "window", "full"])
+def test_benchmark_to_xarray_http(benchmark, read_mode, monkeypatch):
+    monkeypatch.setenv("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
+    case = test_eoproduct_xarray.TestEOProductXarray(methodName="test_to_xarray_local")
+    case.setUp()
+    try:
+        product = EOProduct(case.provider, case.eoproduct_props, collection=case.collection)
+        monkeypatch.setattr(
+            product,
+            "get_storage_options",
+            lambda *args, **kwargs: {
+                "path": REMOTE_RASTER_URL,
+                "block_size": 16 * 1024,
+                "skip_instance_cache": True,
+                "client_kwargs": {"timeout": aiohttp.ClientTimeout(total=30), "trust_env": True},
+            },
+        )
+        benchmark.extra_info["source_url"] = REMOTE_RASTER_URL
+        _benchmark_conversion(benchmark, partial(product.to_xarray, engine="rasterio"), read_mode)
+    finally:
+        case.tearDown()
+
+
 def test_benchmark_eoproduct_assets_population(benchmark):
     # Populating assets goes through eodag-cube's ``AssetsDict.__setitem__``, which
     # wraps every entry in eodag-cube's ``Asset``. This is a side-effect on plain
@@ -126,19 +202,11 @@ def test_benchmark_eoproduct_assets_population(benchmark):
         case.tearDown()
 
 
-def test_benchmark_to_xarray_local(benchmark):
+@pytest.mark.parametrize("read_mode", ["open", "window", "full"])
+def test_benchmark_to_xarray_local(benchmark, read_mode):
     case = test_eoproduct_xarray.TestEOProductXarray(methodName="test_to_xarray_local")
     case.setUp()
-    products_path = os.path.join(TEST_RESOURCES_PATH, "products")
-
-    def _to_xarray_local():
-        product = EOProduct(case.provider, case.eoproduct_props, collection=case.collection)
-        product.register_downloader(AwsDownload("foo", PluginConfig()), None)
-        product.location = path_to_uri(products_path)
-        with product.to_xarray(download_fallback=True) as xarray_dict:
-            return len(xarray_dict)
-
     try:
-        benchmark(_to_xarray_local)
+        _benchmark_conversion(benchmark, partial(_open_local_datasets, case), read_mode)
     finally:
         case.tearDown()
