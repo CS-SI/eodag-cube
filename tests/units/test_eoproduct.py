@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import errno
 import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier, get_ident
@@ -23,6 +24,7 @@ from threading import Barrier, get_ident
 import xarray as xr
 from rasterio.session import AWSSession
 
+from eodag_cube.types import XarrayDict
 from tests import EODagTestCase
 from tests.context import (
     DEFAULT_DOWNLOAD_TIMEOUT,
@@ -147,6 +149,32 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(len(xd), 1)
         self.assertTrue(xd["data"].equals(mock_open_ds.return_value))
         self.assertDictEqual(product.properties, xd["data"].attrs)
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct._build_local_xarray_dict", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_downloaded_directory(self, mock_get_file, mock_build_local, mock_download):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resources", "products"))
+        mock_get_file.side_effect = IsADirectoryError(errno.EISDIR, "Is a directory", local_path)
+
+        for download_fallback in [False, True]:
+            with self.subTest(download_fallback=download_fallback):
+                mock_build_local.reset_mock()
+                mock_build_local.return_value = XarrayDict({"z": xr.Dataset(), "a": xr.Dataset()})
+
+                xd = product.to_xarray(download_fallback=download_fallback, engine="rasterio")
+
+                mock_build_local.assert_called_once_with(product, local_path, engine="rasterio")
+                mock_download.assert_not_called()
+                self.assertEqual(list(xd), ["a", "z"])
+                for dataset in xd.values():
+                    self.assertDictEqual(product.properties, dataset.attrs)
+
+        mock_build_local.return_value = XarrayDict()
+        with self.assertRaisesRegex(DatasetCreationError, "Could not build local XarrayDict"):
+            product.to_xarray()
+        mock_download.assert_not_called()
 
     @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
