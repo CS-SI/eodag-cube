@@ -317,11 +317,17 @@ class EOProduct(EOProduct_core):
         ) as e:
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
 
-            if not download_fallback:
+            if (
+                isinstance(e, (IsADirectoryError, PermissionError))
+                and e.filename is not None
+                and os.path.isdir(e.filename)
+            ):
+                path = e.filename
+            elif not download_fallback:
                 raise
-
-            # download the file and try again with local files
-            path = self.download(asset=asset_key, wait=wait, timeout=timeout, extract=True)
+            else:
+                # download the file and try again with local files
+                path = self.download(asset=asset_key, wait=wait, timeout=timeout, extract=True)
 
             if asset_key is not None:
                 # path is not asset-specific, find asset path

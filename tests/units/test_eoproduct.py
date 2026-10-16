@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import errno
 import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier, get_ident
@@ -23,7 +24,8 @@ from threading import Barrier, get_ident
 import xarray as xr
 from rasterio.session import AWSSession
 
-from tests import EODagTestCase
+from eodag_cube.types import XarrayDict
+from tests import TEST_RESOURCES_PATH, EODagTestCase
 from tests.context import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
@@ -109,7 +111,7 @@ class TestEOProduct(EODagTestCase):
     @mock.patch("fsspec.filesystem")
     def test_build_local_xarray_dict_skips_unrecognized_files(self, mock_fs, mock_open_ds):
         product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        local_path = os.path.join(os.path.dirname(__file__), "..", "resources", "NOTICE")
+        local_path = os.path.join(TEST_RESOURCES_PATH, "NOTICE")
 
         with mock.patch.object(product.driver, "guess_asset_key_and_roles", return_value=(None, [])) as mock_guess:
             xd = product._build_local_xarray_dict(local_path)
@@ -123,7 +125,7 @@ class TestEOProduct(EODagTestCase):
     @mock.patch("fsspec.filesystem")
     def test_build_local_xarray_dict_closes_failed_files(self, mock_fs, mock_open_ds):
         product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
-        local_path = os.path.join(os.path.dirname(__file__), "..", "resources", "NOTICE")
+        local_path = os.path.join(TEST_RESOURCES_PATH, "NOTICE")
         mock_open_ds.side_effect = DatasetCreationError("unsupported dataset")
 
         with mock.patch.object(product.driver, "guess_asset_key_and_roles", return_value=("band", [])):
@@ -147,6 +149,49 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(len(xd), 1)
         self.assertTrue(xd["data"].equals(mock_open_ds.return_value))
         self.assertDictEqual(product.properties, xd["data"].attrs)
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct._build_local_xarray_dict", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_downloaded_directory(self, mock_get_file, mock_build_local, mock_download):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.abspath(os.path.join(TEST_RESOURCES_PATH, "products"))
+        for error in [
+            IsADirectoryError(errno.EISDIR, "Is a directory", local_path),
+            PermissionError(errno.EACCES, "Permission denied", local_path),
+        ]:
+            mock_get_file.side_effect = error
+            for download_fallback in [False, True]:
+                with self.subTest(error=type(error).__name__, download_fallback=download_fallback):
+                    mock_build_local.reset_mock()
+                    mock_build_local.return_value = XarrayDict({"z": xr.Dataset(), "a": xr.Dataset()})
+
+                    xd = product.to_xarray(download_fallback=download_fallback, engine="rasterio")
+
+                    mock_build_local.assert_called_once_with(product, local_path, engine="rasterio")
+                    mock_download.assert_not_called()
+                    self.assertEqual(list(xd), ["a", "z"])
+                    for dataset in xd.values():
+                        self.assertDictEqual(product.properties, dataset.attrs)
+
+        mock_build_local.return_value = XarrayDict()
+        with self.assertRaisesRegex(DatasetCreationError, "Could not build local XarrayDict"):
+            product.to_xarray()
+        mock_download.assert_not_called()
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct._build_local_xarray_dict", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_file_permission_error(self, mock_get_file, mock_build_local, mock_download):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.abspath(os.path.join(TEST_RESOURCES_PATH, "NOTICE"))
+        mock_get_file.side_effect = PermissionError(errno.EACCES, "Permission denied", local_path)
+
+        with self.assertRaises(PermissionError):
+            product.to_xarray()
+
+        mock_build_local.assert_not_called()
+        mock_download.assert_not_called()
 
     @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)

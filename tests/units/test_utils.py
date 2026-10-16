@@ -32,6 +32,7 @@ from fsspec.core import OpenFile
 
 from eodag_cube.types import XarrayDict
 from eodag_cube.utils import metadata
+from tests import TEST_RESOURCES_PATH
 from tests.context import (
     DatasetCreationError,
     fsspec_file_extension,
@@ -187,7 +188,7 @@ class TestXarray(unittest.TestCase):
         second_file.close.assert_not_called()
 
     def test_zip_raster_lazy_read_after_concurrent_open(self):
-        archive = next((Path(__file__).parents[1] / "resources/products/as_archive").glob("*.zip"))
+        archive = next((Path(TEST_RESOURCES_PATH) / "products" / "as_archive").glob("*.zip"))
         code = textwrap.dedent(
             """
             import sys
