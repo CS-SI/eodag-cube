@@ -317,7 +317,11 @@ class EOProduct(EOProduct_core):
         ) as e:
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
 
-            if isinstance(e, IsADirectoryError) and e.filename is not None and os.path.isdir(e.filename):
+            if (
+                isinstance(e, (IsADirectoryError, PermissionError))
+                and e.filename is not None
+                and os.path.isdir(e.filename)
+            ):
                 path = e.filename
             elif not download_fallback:
                 raise
