@@ -113,6 +113,38 @@ class TestUtils(unittest.TestCase):
 
         run()
 
+    def test_fsspec_file_headers_streams_and_closes_responses(self):
+        fs = fsspec.filesystem("https")
+        for head_status, get_status in [(200, 200), (405, 200), (405, 500)]:
+            for options in [{}, {"timeout": (1, 2), "stream": False}]:
+                with self.subTest(head_status=head_status, get_status=get_status, options=options):
+                    file = OpenFile(fs, "https://foo/bar.baz")
+                    file.kwargs = options.copy()
+                    with responses.RequestsMock(assert_all_requests_are_fired=False) as mocked:
+                        mocked.add(responses.HEAD, file.path, status=head_status, headers={"a-header": "from-head"})
+                        mocked.add(
+                            responses.GET,
+                            file.path,
+                            status=get_status,
+                            headers={"a-header": "from-get"},
+                            body=b"unread raster data",
+                        )
+                        headers = fsspec_file_headers(file)
+                        methods = [call.request.method for call in mocked.calls]
+                        self.assertEqual(methods, ["HEAD"] if head_status == 200 else ["HEAD", "GET"])
+                        for call in mocked.calls:
+                            self.assertTrue(call.request.req_kwargs["stream"])
+                            self.assertEqual(call.request.req_kwargs["timeout"], options.get("timeout", (5, 30)))
+                            self.assertTrue(call.response.raw.closed)
+                            self.assertIs(call.response._content, False)
+                    self.assertEqual(file.kwargs, options)
+                    if head_status == 200:
+                        self.assertEqual(headers["a-header"], "from-head")
+                    elif get_status == 200:
+                        self.assertEqual(headers["a-header"], "from-get")
+                    else:
+                        self.assertIsNone(headers)
+
     def test_fsspec_file_extension(self):
         """fsspec_file_extension must return openfile file extension"""
 
