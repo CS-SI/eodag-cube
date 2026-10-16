@@ -212,6 +212,7 @@ class EOProduct(EOProduct_core):
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
         roles: Iterable[str] = {"data", "data-mask"},
         download_fallback: bool = False,
+        max_workers: Optional[int] = None,
         **xarray_kwargs: Any,
     ) -> XarrayDict:
         """
@@ -225,6 +226,8 @@ class EOProduct(EOProduct_core):
                         stop checking order status
         :param roles: (optional) roles of assets that must be fetched
         :param download_fallback: (optional) download assets that cannot be read remotely
+        :param max_workers: (optional) maximum concurrent asset openings; ``None`` uses
+                            the default :class:`concurrent.futures.ThreadPoolExecutor` limit
         :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
@@ -235,14 +238,39 @@ class EOProduct(EOProduct_core):
         from eodag_cube.types import XarrayDict
         from eodag_cube.utils.xarray import try_open_dataset
 
+        if max_workers is not None and max_workers <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
         if asset_key is None and len(self.assets) > 0:
             # assets
 
             # have roles been set in assets ?
             roles_exist = any("roles" in a for a in self.assets.values())
+            roles = tuple(roles) if roles else ()
+            selected_keys = [
+                key
+                for key, asset in self.assets.items()
+                if not roles or not roles_exist or any(role in (asset.get("roles") or ()) for role in roles)
+            ]
 
             xd = XarrayDict()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            if not selected_keys:
+                return xd
+            if len(selected_keys) == 1:
+                try:
+                    return self.to_xarray(
+                        asset_key=selected_keys[0],
+                        wait=wait,
+                        timeout=timeout,
+                        roles=roles,
+                        download_fallback=download_fallback,
+                        **xarray_kwargs,
+                    )
+                except Exception as e:
+                    logger.debug(e)
+                    return xd
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = (
                     executor.submit(
                         self.to_xarray,
@@ -253,12 +281,7 @@ class EOProduct(EOProduct_core):
                         download_fallback=download_fallback,
                         **xarray_kwargs,
                     )
-                    for key, asset in self.assets.items()
-                    if roles
-                    and asset.get("roles")
-                    and any(r in asset["roles"] for r in roles)
-                    or not roles
-                    or not roles_exist
+                    for key in selected_keys
                 )
                 for future in concurrent.futures.as_completed(futures):
                     try:
