@@ -260,8 +260,8 @@ class EOProduct(EOProduct_core):
                 )
                 for future in concurrent.futures.as_completed(futures):
                     try:
-                        future_xd = future.result()
-                        xd.update(**future_xd)
+                        asset_xd = future.result()
+                        xd.update(**asset_xd)
                     except Exception as e:
                         logger.debug(e)
 
