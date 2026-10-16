@@ -28,6 +28,7 @@ from tests.context import (
     DEFAULT_DOWNLOAD_WAIT,
     AwsAuth,
     AwsDownload,
+    DatasetCreationError,
     EOProduct,
     PluginConfig,
     UnsupportedDatasetAddressScheme,
@@ -102,6 +103,35 @@ class TestEOProduct(EODagTestCase):
         mock_storage_options.return_value = {"baz": "qux"}
         with self.assertRaises(UnsupportedDatasetAddressScheme, msg=f"Could not get {product} path"):
             product.get_file_obj()
+
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("fsspec.filesystem")
+    def test_build_local_xarray_dict_skips_unrecognized_files(self, mock_fs, mock_open_ds):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.join(os.path.dirname(__file__), "..", "resources", "NOTICE")
+
+        with mock.patch.object(product.driver, "guess_asset_key_and_roles", return_value=(None, [])) as mock_guess:
+            xd = product._build_local_xarray_dict(local_path)
+
+        mock_guess.assert_called_once_with(local_path, product)
+        mock_fs.return_value.open.assert_not_called()
+        mock_open_ds.assert_not_called()
+        self.assertFalse(xd)
+
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("fsspec.filesystem")
+    def test_build_local_xarray_dict_closes_failed_files(self, mock_fs, mock_open_ds):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.join(os.path.dirname(__file__), "..", "resources", "NOTICE")
+        mock_open_ds.side_effect = DatasetCreationError("unsupported dataset")
+
+        with mock.patch.object(product.driver, "guess_asset_key_and_roles", return_value=("band", [])):
+            xd = product._build_local_xarray_dict(local_path, engine="rasterio")
+
+        mock_fs.return_value.open.assert_called_once_with(local_path)
+        mock_open_ds.assert_called_once_with(mock_fs.return_value.open.return_value, engine="rasterio")
+        mock_fs.return_value.open.return_value.close.assert_called_once_with()
+        self.assertFalse(xd)
 
     @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
