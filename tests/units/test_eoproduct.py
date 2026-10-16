@@ -73,6 +73,22 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
         self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
 
+    def test_get_rio_env_unsigned(self):
+        """RIO env should use no-sign-request when no AWS credentials are found"""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.register_downloader(AwsDownload("foo", PluginConfig()), AwsAuth("foo", PluginConfig()))
+
+        with mock.patch("boto3.Session.get_credentials", return_value=None):
+            rio_env = product._get_rio_env("s3://path/to/asset")
+        self.assertTrue(rio_env["session"].unsigned)
+        self.assertEqual(rio_env["session"].get_credential_options()["AWS_NO_SIGN_REQUEST"], "YES")
+
+        product.register_downloader(AwsDownload("foo", PluginConfig()), AwsAuth("foo", PluginConfig()))
+        creds = mock.MagicMock(access_key="a", secret_key="b", token=None)
+        with mock.patch("boto3.Session.get_credentials", return_value=creds):
+            rio_env = product._get_rio_env("s3://path/to/asset")
+        self.assertFalse(rio_env["session"].unsigned)
+
     @mock.patch("fsspec.filesystem")
     @mock.patch("eodag.api.product._product.EOProduct.get_storage_options", autospec=True)
     def test_get_file_obj(self, mock_storage_options, mock_fs):

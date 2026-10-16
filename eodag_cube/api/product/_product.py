@@ -95,7 +95,11 @@ class EOProduct(EOProduct_core):
 
         product_location_scheme = dataset_address.split("://")[0]
         if "s3" in product_location_scheme and isinstance(self.downloader_auth, AwsAuth):
-            rio_env_dict = {"session": rasterio.session.AWSSession(**self.downloader_auth.get_rio_env())}
+            aws_session_kwargs = self.downloader_auth.get_rio_env()
+            # mirror the no-sign-request fallback used by AwsAuth and fsspec (anon=True)
+            if (boto_session := aws_session_kwargs.get("session")) is None or boto_session.get_credentials() is None:
+                aws_session_kwargs["aws_unsigned"] = True
+            rio_env_dict = {"session": rasterio.session.AWSSession(**aws_session_kwargs)}
             auth = self.downloader_auth.s3_resource
             if auth is None:
                 auth = self.downloader_auth.authenticate()
