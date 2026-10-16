@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import rioxarray
 import xarray as xr
@@ -85,7 +85,8 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
     else:
         all_engines = guess_engines(file) or [*xr.backends.list_engines()]
 
-    if "file" in file.fs.protocol:
+    is_local = "file" in file.fs.protocol
+    if is_local:
         engines = all_engines
 
         # use path str as cfgrib does not support fsspec OpenFile as input
@@ -109,14 +110,9 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
         file_or_path = file
 
     # loop for engines on remote data, as xarray does not always guess it right
+    reopen_file = False
     for engine in engines:
-        # re-open file to prevent I/O operation on closed file
-        # (and `closed` attr does not seem up-to-date)
-        try:
-            file = file.fs.open(path=file.path)
-        except Exception as e:
-            logger.debug(f"Could not re-open file: {str(e)}")
-
+        opened_file = None
         try:
             if engine == "rasterio":
                 # fix messy protocol with zip+s3
@@ -168,11 +164,31 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
                 else:
                     ds = ds_or_list
             else:
+                if not is_local:
+                    opened_file = file.fs.open(path=file.path) if reopen_file else file
+                    file_or_path = opened_file
                 ds = xr.open_dataset(file_or_path, engine=engine, **xarray_kwargs)
 
         except Exception as e:
+            if opened_file is not None:
+                opened_file.close()
+                reopen_file = True
             logger.debug(f"Cannot open {file.path} with {file.fs.protocol} + {engine}: {str(e)}")
         else:
+            if opened_file is not None:
+                close_backend = ds._close
+
+                def close_dataset(
+                    close_backend: Optional[Callable[[], None]] = close_backend,
+                    opened_file: OpenFile = opened_file,
+                ) -> None:
+                    try:
+                        if close_backend is not None:
+                            close_backend()
+                    finally:
+                        opened_file.close()
+
+                ds.set_close(close_dataset)
             logger.debug(f"{file.path} opened using {file.fs.protocol} + {engine}")
             return ds
 
