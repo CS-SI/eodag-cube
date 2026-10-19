@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import rioxarray
 import xarray as xr
@@ -32,6 +32,24 @@ if TYPE_CHECKING:
     from fsspec.core import OpenFile
 
 logger = logging.getLogger("eodag-cube.utils.xarray")
+
+
+class _SeekableZipOpener:
+    """Make ZIP members opened by fsspec explicitly seekable for rasterio.
+
+    ``ZipExtFile`` supports seeking, but some Python versions do not expose the
+    private ``_seekable`` attribute inspected by rasterio's ``pyopener_seek``.
+    Set the flag on the member stream instead of buffering the entire member.
+    """
+
+    def __init__(self, zip_fs: Any) -> None:
+        self._zip_fs = zip_fs
+
+    def open(self, path: str, mode: str = "rb") -> Any:
+        member = self._zip_fs.open(path, mode)
+        if not hasattr(member, "_seekable"):
+            member._seekable = True
+        return member
 
 
 def guess_engines(file: OpenFile) -> list[str]:
@@ -67,7 +85,8 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
     else:
         all_engines = guess_engines(file) or [*xr.backends.list_engines()]
 
-    if "file" in file.fs.protocol:
+    is_local = "file" in file.fs.protocol
+    if is_local:
         engines = all_engines
 
         # use path str as cfgrib does not support fsspec OpenFile as input
@@ -91,40 +110,85 @@ def try_open_dataset(file: OpenFile, **xarray_kwargs: Any) -> xr.Dataset:
         file_or_path = file
 
     # loop for engines on remote data, as xarray does not always guess it right
+    reopen_file = False
     for engine in engines:
-        # re-open file to prevent I/O operation on closed file
-        # (and `closed` attr does not seem up-to-date)
-        try:
-            file = file.fs.open(path=file.path)
-        except Exception as e:
-            logger.debug(f"Could not re-open file: {str(e)}")
-
+        opened_file = None
         try:
             if engine == "rasterio":
-                # prevents to read all file in memory since rasterio 1.4.0
-                # https://github.com/rasterio/rasterio/issues/3232
-                opener = file.fs.open if not any(p in file.fs.protocol for p in ["local", "s3"]) else None
                 # fix messy protocol with zip+s3
                 clean_url = getattr(file, "full_name", file.path).replace("s3://zip+s3://", "zip+s3://")
-                da = rioxarray.open_rasterio(
-                    clean_url,
-                    opener=opener,
-                    # default value from RasterioBackend
-                    mask_and_scale=True,
-                    **xarray_kwargs,
-                )
-                ds_or_list = da.to_dataset(name="band_data") if isinstance(da, xr.DataArray) else da
+
+                if "zip+s3://" in clean_url and "!" in clean_url:
+                    # Use fsspec ZipFileSystem as the rasterio opener so that
+                    # GDAL reads from the zip via fsspec (which already holds
+                    # the S3 credentials) instead of through its own
+                    # /vsizip/vsis3/ handler, which may fail when the GDAL
+                    # environment is not propagated correctly (rasterio ≥ 1.5).
+                    from fsspec.implementations.zip import ZipFileSystem
+
+                    zip_part, inner_path = clean_url.split("!", 1)
+                    s3_archive = zip_part.replace("zip+s3://", "")
+                    zip_fs = ZipFileSystem(fo=s3_archive, target_protocol="s3", target_options=file.fs.storage_options)
+                    da = rioxarray.open_rasterio(
+                        inner_path,
+                        opener=zip_fs,
+                        # default value from RasterioBackend
+                        mask_and_scale=True,
+                        **xarray_kwargs,
+                    )
+                else:
+                    # prevents to read all file in memory since rasterio 1.4.0
+                    # https://github.com/rasterio/rasterio/issues/3232
+                    opener = file.fs.open if not any(p in file.fs.protocol for p in ["local", "s3"]) else None
+                    da = rioxarray.open_rasterio(
+                        clean_url,
+                        opener=opener,
+                        # default value from RasterioBackend
+                        mask_and_scale=True,
+                        **xarray_kwargs,
+                    )
+                ds_or_list: Union[xr.Dataset, list[xr.Dataset]]
+                if isinstance(da, xr.DataArray):
+                    ds_or_list = da.to_dataset(name="band_data")
+                    ds_or_list.set_close(da._close)
+                    da.close()
+                else:
+                    ds_or_list = da
+                    for raster_ds in da if isinstance(da, list) else [da]:
+                        close_raster = raster_ds._close
+                        raster_ds.close()
+                        raster_ds.set_close(close_raster)
                 if isinstance(ds_or_list, list):
                     logger.warning(f"Only 1/{len(ds_or_list)} datasets list was kept for {file.path}")
                     ds = ds_or_list[0]
                 else:
                     ds = ds_or_list
             else:
+                if not is_local:
+                    opened_file = file.fs.open(path=file.path) if reopen_file else file
+                    file_or_path = opened_file
                 ds = xr.open_dataset(file_or_path, engine=engine, **xarray_kwargs)
 
         except Exception as e:
+            if opened_file is not None:
+                opened_file.close()
+                reopen_file = True
             logger.debug(f"Cannot open {file.path} with {file.fs.protocol} + {engine}: {str(e)}")
         else:
+            if opened_file is not None:
+                close_backend = ds._close
+
+                def close_dataset(
+                    close_backend: Optional[Callable[[], None]] = close_backend,
+                    opened_file: OpenFile = opened_file,
+                ) -> None:
+                    try:
+                        if close_backend is not None:
+                            close_backend()
+                    finally:
+                        opened_file.close()
+
+                ds.set_close(close_dataset)
             logger.debug(f"{file.path} opened using {file.fs.protocol} + {engine}")
             return ds
 

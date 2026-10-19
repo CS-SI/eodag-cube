@@ -95,7 +95,11 @@ class EOProduct(EOProduct_core):
 
         product_location_scheme = dataset_address.split("://")[0]
         if "s3" in product_location_scheme and isinstance(self.downloader_auth, AwsAuth):
-            rio_env_dict = {"session": rasterio.session.AWSSession(**self.downloader_auth.get_rio_env())}
+            aws_session_kwargs = self.downloader_auth.get_rio_env()
+            # mirror the no-sign-request fallback used by AwsAuth and fsspec (anon=True)
+            if (boto_session := aws_session_kwargs.get("session")) is None or boto_session.get_credentials() is None:
+                aws_session_kwargs["aws_unsigned"] = True
+            rio_env_dict = {"session": rasterio.session.AWSSession(**aws_session_kwargs)}
             auth = self.downloader_auth.s3_resource
             if auth is None:
                 auth = self.downloader_auth.authenticate()
@@ -189,17 +193,19 @@ class EOProduct(EOProduct_core):
         for file_path in files:
             if not os.path.isfile(file_path):
                 continue
+            key, _ = self.driver.guess_asset_key_and_roles(file_path, self)
+            if key is None:
+                logger.debug(f"Could not guess asset key for {file_path}")
+                continue
             file = fs.open(file_path)
             try:
                 ds = try_open_dataset(file, **xarray_kwargs)
-                key, _ = self.driver.guess_asset_key_and_roles(file_path, self)
-                if key is not None:
-                    xarray_dict[key] = ds
-                    xarray_dict._files[key] = file
-                else:
-                    logger.debug(f"Could not guess asset key for {file_path}")
             except DatasetCreationError as e:
+                file.close()
                 logger.debug(e)
+            else:
+                xarray_dict[key] = ds
+                xarray_dict._files[key] = file
 
         return xarray_dict
 
@@ -210,6 +216,7 @@ class EOProduct(EOProduct_core):
         timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
         roles: Iterable[str] = {"data", "data-mask"},
         download_fallback: bool = False,
+        max_workers: Optional[int] = None,
         **xarray_kwargs: Any,
     ) -> XarrayDict:
         """
@@ -223,6 +230,8 @@ class EOProduct(EOProduct_core):
                         stop checking order status
         :param roles: (optional) roles of assets that must be fetched
         :param download_fallback: (optional) download assets that cannot be read remotely
+        :param max_workers: (optional) maximum concurrent asset openings; ``None`` uses
+                            the default :class:`concurrent.futures.ThreadPoolExecutor` limit
         :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
         :returns: a dictionary of :class:`xarray.Dataset`
         """
@@ -233,14 +242,42 @@ class EOProduct(EOProduct_core):
         from eodag_cube.types import XarrayDict
         from eodag_cube.utils.xarray import try_open_dataset
 
+        if max_workers is not None and max_workers <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
         if asset_key is None and len(self.assets) > 0:
             # assets
 
             # have roles been set in assets ?
             roles_exist = any("roles" in a for a in self.assets.values())
+            roles = tuple(roles) if roles else ()
+            selected_keys = [
+                key
+                for key, asset in self.assets.items()
+                if not roles or not roles_exist or any(role in (asset.get("roles") or ()) for role in roles)
+            ]
 
             xd = XarrayDict()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            if not selected_keys:
+                return xd
+            if len(selected_keys) == 1:
+                try:
+                    return self.to_xarray(
+                        asset_key=selected_keys[0],
+                        wait=wait,
+                        timeout=timeout,
+                        roles=roles,
+                        download_fallback=download_fallback,
+                        **xarray_kwargs,
+                    )
+                except Exception as e:
+                    logger.debug(e)
+                    return xd
+
+            if isinstance(self.downloader_auth, AwsAuth) and self.downloader_auth.s3_session is None:
+                self.downloader_auth.authenticate()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = (
                     executor.submit(
                         self.to_xarray,
@@ -251,17 +288,12 @@ class EOProduct(EOProduct_core):
                         download_fallback=download_fallback,
                         **xarray_kwargs,
                     )
-                    for key, asset in self.assets.items()
-                    if roles
-                    and asset.get("roles")
-                    and any(r in asset["roles"] for r in roles)
-                    or not roles
-                    or not roles_exist
+                    for key in selected_keys
                 )
                 for future in concurrent.futures.as_completed(futures):
                     try:
-                        future_xd = future.result()
-                        xd.update(**future_xd)
+                        asset_xd = future.result()
+                        xd.update(**asset_xd)
                     except Exception as e:
                         logger.debug(e)
 
@@ -292,11 +324,17 @@ class EOProduct(EOProduct_core):
         ) as e:
             logger.debug(f"Cannot open {self} {asset_key if asset_key else ''}: {e}")
 
-            if not download_fallback:
+            if (
+                isinstance(e, (IsADirectoryError, PermissionError))
+                and e.filename is not None
+                and os.path.isdir(e.filename)
+            ):
+                path = e.filename
+            elif not download_fallback:
                 raise
-
-            # download the file and try again with local files
-            path = self.download(asset=asset_key, wait=wait, timeout=timeout, extract=True)
+            else:
+                # download the file and try again with local files
+                path = self.download(asset=asset_key, wait=wait, timeout=timeout, extract=True)
 
             if asset_key is not None:
                 # path is not asset-specific, find asset path

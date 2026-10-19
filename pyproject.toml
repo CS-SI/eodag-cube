@@ -14,6 +14,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "eodag >= 4.7.0",
+    "boto3 < 1.42.50",
     "numpy",
     "rasterio",
     "xarray",
@@ -52,6 +53,7 @@ dev = [
     "isort",
     "prek",
     "pytest",
+    "pytest-benchmark",
     "pytest-cov",
     "tox",
     "tox-uv",

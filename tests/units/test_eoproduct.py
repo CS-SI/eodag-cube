@@ -16,17 +16,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import errno
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, get_ident
 
 import xarray as xr
 from rasterio.session import AWSSession
 
-from tests import EODagTestCase
+from eodag_cube.types import XarrayDict
+from tests import TEST_RESOURCES_PATH, EODagTestCase
 from tests.context import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_DOWNLOAD_WAIT,
     AwsAuth,
     AwsDownload,
+    DatasetCreationError,
     EOProduct,
     PluginConfig,
     UnsupportedDatasetAddressScheme,
@@ -68,6 +73,22 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(rio_env["AWS_S3_ENDPOINT"], "some.where")
         self.assertEqual(rio_env["AWS_VIRTUAL_HOSTING"], "FALSE")
 
+    def test_get_rio_env_unsigned(self):
+        """RIO env should use no-sign-request when no AWS credentials are found"""
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.register_downloader(AwsDownload("foo", PluginConfig()), AwsAuth("foo", PluginConfig()))
+
+        with mock.patch("boto3.Session.get_credentials", return_value=None):
+            rio_env = product._get_rio_env("s3://path/to/asset")
+        self.assertTrue(rio_env["session"].unsigned)
+        self.assertEqual(rio_env["session"].get_credential_options()["AWS_NO_SIGN_REQUEST"], "YES")
+
+        product.register_downloader(AwsDownload("foo", PluginConfig()), AwsAuth("foo", PluginConfig()))
+        creds = mock.MagicMock(access_key="a", secret_key="b", token=None)
+        with mock.patch("boto3.Session.get_credentials", return_value=creds):
+            rio_env = product._get_rio_env("s3://path/to/asset")
+        self.assertFalse(rio_env["session"].unsigned)
+
     @mock.patch("fsspec.filesystem")
     @mock.patch("eodag.api.product._product.EOProduct.get_storage_options", autospec=True)
     def test_get_file_obj(self, mock_storage_options, mock_fs):
@@ -103,6 +124,35 @@ class TestEOProduct(EODagTestCase):
             product.get_file_obj()
 
     @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("fsspec.filesystem")
+    def test_build_local_xarray_dict_skips_unrecognized_files(self, mock_fs, mock_open_ds):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.join(TEST_RESOURCES_PATH, "NOTICE")
+
+        with mock.patch.object(product.driver, "guess_asset_key_and_roles", return_value=(None, [])) as mock_guess:
+            xd = product._build_local_xarray_dict(local_path)
+
+        mock_guess.assert_called_once_with(local_path, product)
+        mock_fs.return_value.open.assert_not_called()
+        mock_open_ds.assert_not_called()
+        self.assertFalse(xd)
+
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("fsspec.filesystem")
+    def test_build_local_xarray_dict_closes_failed_files(self, mock_fs, mock_open_ds):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.join(TEST_RESOURCES_PATH, "NOTICE")
+        mock_open_ds.side_effect = DatasetCreationError("unsupported dataset")
+
+        with mock.patch.object(product.driver, "guess_asset_key_and_roles", return_value=("band", [])):
+            xd = product._build_local_xarray_dict(local_path, engine="rasterio")
+
+        mock_fs.return_value.open.assert_called_once_with(local_path)
+        mock_open_ds.assert_called_once_with(mock_fs.return_value.open.return_value, engine="rasterio")
+        mock_fs.return_value.open.return_value.close.assert_called_once_with()
+        self.assertFalse(xd)
+
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
     def test_to_xarray(self, mock_get_file, mock_open_ds):
         """to_xarrray should return well built XarrayDict"""
@@ -115,6 +165,49 @@ class TestEOProduct(EODagTestCase):
         self.assertEqual(len(xd), 1)
         self.assertTrue(xd["data"].equals(mock_open_ds.return_value))
         self.assertDictEqual(product.properties, xd["data"].attrs)
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct._build_local_xarray_dict", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_downloaded_directory(self, mock_get_file, mock_build_local, mock_download):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.abspath(os.path.join(TEST_RESOURCES_PATH, "products"))
+        for error in [
+            IsADirectoryError(errno.EISDIR, "Is a directory", local_path),
+            PermissionError(errno.EACCES, "Permission denied", local_path),
+        ]:
+            mock_get_file.side_effect = error
+            for download_fallback in [False, True]:
+                with self.subTest(error=type(error).__name__, download_fallback=download_fallback):
+                    mock_build_local.reset_mock()
+                    mock_build_local.return_value = XarrayDict({"z": xr.Dataset(), "a": xr.Dataset()})
+
+                    xd = product.to_xarray(download_fallback=download_fallback, engine="rasterio")
+
+                    mock_build_local.assert_called_once_with(product, local_path, engine="rasterio")
+                    mock_download.assert_not_called()
+                    self.assertEqual(list(xd), ["a", "z"])
+                    for dataset in xd.values():
+                        self.assertDictEqual(product.properties, dataset.attrs)
+
+        mock_build_local.return_value = XarrayDict()
+        with self.assertRaisesRegex(DatasetCreationError, "Could not build local XarrayDict"):
+            product.to_xarray()
+        mock_download.assert_not_called()
+
+    @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct._build_local_xarray_dict", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_file_permission_error(self, mock_get_file, mock_build_local, mock_download):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        local_path = os.path.abspath(os.path.join(TEST_RESOURCES_PATH, "NOTICE"))
+        mock_get_file.side_effect = PermissionError(errno.EACCES, "Permission denied", local_path)
+
+        with self.assertRaises(PermissionError):
+            product.to_xarray()
+
+        mock_build_local.assert_not_called()
+        mock_download.assert_not_called()
 
     @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
@@ -130,7 +223,18 @@ class TestEOProduct(EODagTestCase):
 
         mock_open_ds.return_value = xr.Dataset()
         mock_get_file.return_value.path = "http://foo.bar"
+        opening_threads = []
+        opening_barrier = Barrier(2)
+
+        def open_dataset(*args, **kwargs):
+            opening_threads.append(get_ident())
+            opening_barrier.wait(timeout=5)
+            return mock_open_ds.return_value
+
+        mock_open_ds.side_effect = open_dataset
         xd = product.to_xarray(foo="bar")
+        self.assertEqual(len(set(opening_threads)), 2)
+        self.assertNotIn(get_ident(), opening_threads)
         mock_get_file.assert_any_call(product, "foo", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT)
         mock_get_file.assert_any_call(product, "bar", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT)
         mock_open_ds.assert_called_with(mock_get_file.return_value, foo="bar")
@@ -139,6 +243,94 @@ class TestEOProduct(EODagTestCase):
         self.assertTrue(xd["bar"].equals(mock_open_ds.return_value))
         self.assertDictEqual(product.properties, xd["foo"].attrs)
         self.assertDictEqual(product.properties, xd["bar"].attrs)
+
+    @mock.patch("eodag.plugins.authentication.aws_auth.create_s3_session")
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_initializes_aws_before_workers(self, mock_get_file, mock_open_ds, mock_session):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        auth = AwsAuth("foo", PluginConfig())
+        product.register_downloader(AwsDownload("foo", PluginConfig()), auth)
+        product.assets.update({key: {"href": f"s3://bucket/{key}.tif"} for key in ["foo", "bar"]})
+        mock_get_file.return_value.path = "https://foo/band.tif"
+        mock_open_ds.side_effect = lambda *args, **kwargs: xr.Dataset()
+        opening_barrier = Barrier(2)
+        opening_threads = []
+
+        def get_file(product, asset_key, wait, timeout):
+            self.assertIs(auth.s3_session, mock_session.return_value)
+            opening_threads.append(get_ident())
+            opening_barrier.wait(timeout=5)
+            product.get_storage_options(asset_key, wait, timeout)
+            return mock_get_file.return_value
+
+        mock_get_file.side_effect = get_file
+        with mock.patch("concurrent.futures.ThreadPoolExecutor", wraps=ThreadPoolExecutor) as mock_executor:
+            xd = product.to_xarray(max_workers=2)
+            self.assertIs(auth.s3_session, mock_session.return_value)
+
+        self.assertEqual(list(xd), ["bar", "foo"])
+        self.assertEqual(len(set(opening_threads)), 2)
+        self.assertNotIn(get_ident(), opening_threads)
+        mock_executor.assert_called_once_with(max_workers=2)
+        mock_session.assert_called_once_with()
+
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_max_workers(self, mock_get_file, mock_open_ds):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.assets.update({key: {"href": f"https://foo/{key}.tif", "roles": ["data"]} for key in ["foo", "bar"]})
+        mock_get_file.return_value.path = "https://foo/band.tif"
+        mock_open_ds.return_value = xr.Dataset()
+
+        for max_workers in [None, 1, 2]:
+            with self.subTest(max_workers=max_workers):
+                with mock.patch("concurrent.futures.ThreadPoolExecutor", wraps=ThreadPoolExecutor) as mock_executor:
+                    xd = product.to_xarray(max_workers=max_workers, roles=iter(["data"]), foo="bar")
+
+                mock_executor.assert_called_once_with(max_workers=max_workers)
+                self.assertEqual(list(xd), ["bar", "foo"])
+                mock_open_ds.assert_called_with(mock_get_file.return_value, foo="bar")
+
+    @mock.patch("concurrent.futures.ThreadPoolExecutor")
+    @mock.patch("eodag_cube.utils.xarray.try_open_dataset", autospec=True)
+    @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)
+    def test_to_xarray_filtered_assets_without_executor(self, mock_get_file, mock_open_ds, mock_executor):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        product.assets.update(
+            {
+                "band": {"href": "https://foo/band.tif", "roles": ["data"]},
+                "metadata": {"href": "https://foo/metadata.xml", "roles": ["metadata"]},
+            }
+        )
+        mock_get_file.return_value.path = "https://foo/band.tif"
+        mock_open_ds.return_value = xr.Dataset()
+
+        for role, fails, expected_keys in [("missing", False, []), ("data", False, ["band"]), ("data", True, [])]:
+            with self.subTest(role=role, fails=fails):
+                mock_get_file.reset_mock()
+                mock_open_ds.reset_mock()
+                mock_open_ds.side_effect = OSError("remote read failed") if fails else None
+
+                xd = product.to_xarray(roles=iter([role]), max_workers=2, foo="bar")
+
+                self.assertEqual(list(xd), expected_keys)
+                if role == "missing":
+                    mock_get_file.assert_not_called()
+                    mock_open_ds.assert_not_called()
+                else:
+                    mock_get_file.assert_called_once_with(
+                        product, "band", DEFAULT_DOWNLOAD_WAIT, DEFAULT_DOWNLOAD_TIMEOUT
+                    )
+                    mock_open_ds.assert_called_once_with(mock_get_file.return_value, foo="bar")
+                mock_executor.assert_not_called()
+
+    def test_to_xarray_rejects_invalid_max_workers(self):
+        product = EOProduct(self.provider, self.eoproduct_props, collection=self.collection)
+        for max_workers in [0, -1]:
+            with self.subTest(max_workers=max_workers):
+                with self.assertRaisesRegex(ValueError, "max_workers must be greater than 0"):
+                    product.to_xarray(max_workers=max_workers)
 
     @mock.patch("eodag_cube.api.product._product.EOProduct.download", autospec=True)
     @mock.patch("eodag_cube.api.product._product.EOProduct.get_file_obj", autospec=True)

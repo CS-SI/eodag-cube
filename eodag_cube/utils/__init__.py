@@ -47,23 +47,23 @@ def fsspec_file_headers(file: OpenFile) -> Optional[dict[str, Any]]:
     :param file: fsspec https OpenFile
     :returns: file headers or ``None``
     """
-    file_kwargs = getattr(file, "kwargs", {})
+    file_kwargs = dict(getattr(file, "kwargs", {}))
+    # Connect timeout: 5 seconds; read timeout: 30 seconds.
+    file_kwargs.setdefault("timeout", (5, 30))
+    file_kwargs["stream"] = True
     if "https" in file.fs.protocol:
         try:
-            resp = requests.head(file.path, **file_kwargs)
-            resp.raise_for_status()
+            with requests.head(file.path, **file_kwargs) as resp:
+                resp.raise_for_status()
+                return dict(resp.headers)
         except requests.RequestException:
             pass
-        else:
-            return dict(resp.headers)
-        # if HEAD method is not available, try to get a minimal part of the file
         try:
-            resp = requests.get(file.path, **file_kwargs)
-            resp.raise_for_status()
+            with requests.get(file.path, **file_kwargs) as resp:
+                resp.raise_for_status()
+                return dict(resp.headers)
         except requests.RequestException:
             pass
-        else:
-            return dict(resp.headers)
     return None
 
 

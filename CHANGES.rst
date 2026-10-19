@@ -2,6 +2,63 @@
 Release history
 ===============
 
+v0.9.1 (2026-10-19)
+===================
+
+Bug Fixes
+---------
+
+* Avoid downloading file bodies during HTTP header detection (`#137`_, `8986b52`_)
+
+* Filter local assets before opening datasets (`#139`_, `aee4460`_)
+
+* Prevent AWS authentication race in concurrent asset reads (`#145`_, `b16d35e`_)
+
+* Read downloaded product directories without download fallback (`#143`_, `984ae6c`_)
+
+* Scope XarrayDict file handles per instance (`#136`_, `70a98cf`_)
+
+* Support concurrent access to S3 ZIP raster assets (`#135`_, `8a71cd9`_)
+
+* Use fresh file handles for backend retries (`#138`_, `f621fa2`_)
+
+* Use unsigned rasterio AWS session when no credentials are found (`#144`_, `cd98f73`_)
+
+Performance Improvements
+------------------------
+
+* Make asset-opening concurrency configurable (`#141`_, `bdfca19`_)
+
+Testing
+-------
+
+* Benchmark dataset opening and data loading separately (`#140`_, `4846947`_)
+
+* Use locally served JP2 for HTTP benchmarks (`#142`_, `8b749df`_)
+
+.. _#135: https://github.com/CS-SI/eodag-cube/pull/135
+.. _#136: https://github.com/CS-SI/eodag-cube/pull/136
+.. _#137: https://github.com/CS-SI/eodag-cube/pull/137
+.. _#138: https://github.com/CS-SI/eodag-cube/pull/138
+.. _#139: https://github.com/CS-SI/eodag-cube/pull/139
+.. _#140: https://github.com/CS-SI/eodag-cube/pull/140
+.. _#141: https://github.com/CS-SI/eodag-cube/pull/141
+.. _#142: https://github.com/CS-SI/eodag-cube/pull/142
+.. _#143: https://github.com/CS-SI/eodag-cube/pull/143
+.. _#144: https://github.com/CS-SI/eodag-cube/pull/144
+.. _#145: https://github.com/CS-SI/eodag-cube/pull/145
+.. _4846947: https://github.com/CS-SI/eodag-cube/commit/4846947c977443ff9501aff77b83376e63c45f5f
+.. _70a98cf: https://github.com/CS-SI/eodag-cube/commit/70a98cfddcc4be2853f76abefa628058f39ec05a
+.. _8986b52: https://github.com/CS-SI/eodag-cube/commit/8986b52cfb148243818e588de5374123b06e202d
+.. _8a71cd9: https://github.com/CS-SI/eodag-cube/commit/8a71cd9fcf196d0e57d6aa1815feb5dd7dd3fa92
+.. _8b749df: https://github.com/CS-SI/eodag-cube/commit/8b749df750d01ebf0e69d267c50750e10e8dedcb
+.. _984ae6c: https://github.com/CS-SI/eodag-cube/commit/984ae6cd0d431bbf5281f9c6cc7cfed06319219b
+.. _aee4460: https://github.com/CS-SI/eodag-cube/commit/aee44601932d8c36a030bfaf8d2102cd8f845b6d
+.. _b16d35e: https://github.com/CS-SI/eodag-cube/commit/b16d35efec60f311756e688976d4aa3cd8456e82
+.. _bdfca19: https://github.com/CS-SI/eodag-cube/commit/bdfca195483e860bca47e2258fc9b52affc62da1
+.. _cd98f73: https://github.com/CS-SI/eodag-cube/commit/cd98f73f631771a1d0f1cd5b50d7d62cf5d457a4
+.. _f621fa2: https://github.com/CS-SI/eodag-cube/commit/f621fa2d88ce3e2a661df5e6bce674ac7b433683
+
 
 v0.9.0 (2026-09-10)
 ===================
